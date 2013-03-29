@@ -403,32 +403,35 @@ store (long long size)
 
   sha1_to_path (output_path, sha1_digest);
 
-  if (-1 == pmkdir (output_path))
+  if (-1 == access (output_path, F_OK))
     {
-      printf ("500 mkdir failed: %s\n", strerror (errno));
+      if (-1 == pmkdir (output_path))
+        {
+          printf ("500 mkdir failed: %s\n", strerror (errno));
 
-      goto done;
-    }
+          goto done;
+        }
 
-  if (do_fsync && -1 == fsync (fd))
-    {
-      printf ("500 fsync failed: %s\n", strerror (errno));
+      if (do_fsync && -1 == fsync (fd))
+        {
+          printf ("500 fsync failed: %s\n", strerror (errno));
 
-      goto done;
-    }
+          goto done;
+        }
 
-  if (-1 == rename (tmp_path, output_path))
-    {
-      printf ("500 rename failed: %s\n", strerror (errno));
+      if (-1 == rename (tmp_path, output_path))
+        {
+          printf ("500 rename failed: %s\n", strerror (errno));
 
-      goto done;
+          goto done;
+        }
+
+      /* fsync succeeded, so we don't care about the result of close */
+      (void) close (fd);
+      fd = -1;
     }
 
   printf ("201 %.2s%.2s%s\n", output_path, output_path + 3, output_path + 6);
-
-  /* fsync succeeded, so we don't care about the result of close */
-  (void) close (fd);
-  fd = -1;
 
 done:
 
