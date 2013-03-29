@@ -376,18 +376,9 @@ do_command (const char *command)
     {
       size = strtoll (command + strlen ("PUT "), &ch, 10);
 
-      if (size < 0
-          || *ch != ' '
-          || -1 == parse_sha1_hex (sha1, ch + 1))
+      if (size < 0 || *ch != 0)
         {
-          printf ("400 Invalid PUT request.  Expected PUT [<LENGTH> <HEXADECIMAL SHA-1>]\n");
-
-          return;
-        }
-
-      if (0 == lookup (sha1, 0))
-        {
-          printf ("204 Entity already exists\n");
+          printf ("400 Invalid PUT request.  Expected PUT [LENGTH]\n");
 
           return;
         }
@@ -404,6 +395,22 @@ do_command (const char *command)
         }
 
       lookup (sha1, 1);
+    }
+  else if (!strncmp (command, "HEAD ", strlen ("HEAD ")))
+    {
+      if (-1 == parse_sha1_hex (sha1, command + strlen ("HEAD ")))
+        {
+          printf ("400 Invalid HEAD request.  Expected HEAD <HEXADECIMAL SHA-1>\n");
+
+          return;
+        }
+
+      if (0 == lookup (sha1, 0))
+        printf ("200 Entity exists\n");
+      else if (errno == ENOENT || errno == ENOTDIR)
+        printf ("404 Entity not found\n");
+      else
+        printf ("500 Lookup failed: %s\n", strerror (errno));
     }
   else
     printf ("405 Unknown command\n");
