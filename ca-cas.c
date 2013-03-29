@@ -32,14 +32,20 @@
 #include <getopt.h>
 #include <sys/mman.h>
 #include <sys/sendfile.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sysexits.h>
 #include <unistd.h>
 
+#include "sha1.h"
+
 static int print_version;
 static int print_help;
+static int do_fsync = 1;
 
 static struct option long_options[] =
 {
+    { "no-fsync",       no_argument,  &do_fsync,      0 },
     { "version",        no_argument,  &print_version, 1 },
     { "help",           no_argument,  &print_help,    1 },
     { 0, 0, 0, 0 }
@@ -79,7 +85,7 @@ parse_sha1_hex (unsigned char sha1_hex[static 20], const char *string)
 
   for (i = 0; i < 40; i += 2, string += 2)
     {
-      if (!isxdigit (string[0]))
+      if (!isxdigit (string[0]) || !isxdigit (string[1]))
         return -1;
 
       /* Works with both upper- and lower-case */
@@ -123,7 +129,6 @@ lookup (const unsigned char sha1[static 20], int retrieve)
 {
   char path[43];
   unsigned int i;
-  int result = 0;
 
   int fd;
   ssize_t ret = 0;
@@ -169,13 +174,12 @@ lookup (const unsigned char sha1[static 20], int retrieve)
 
   if (errno != ENOENT && errno != ENOTDIR)
     {
-      if (!retrieve)
-        printf ("500 open failed: %s\n", strerror (errno));
+      printf ("500 open failed: %s\n", strerror (errno));
 
       return -1;
     }
 
-  for (i = 0; result == 0; ++i)
+  for (i = 0; ; ++i)
     {
       off_t pack_size;
 
@@ -184,12 +188,10 @@ lookup (const unsigned char sha1[static 20], int retrieve)
       const struct pack_entry *entries;
       uint64_t j, data_start;
 
-      result = -1;
-
       sprintf (path, "packs/%08x.pack", i);
 
       if (-1 == (fd = open (path, O_RDONLY)))
-        return -1;
+        break;
 
       if (-1 == (pack_size = lseek (fd, 0, SEEK_END)))
         goto fail;
@@ -202,7 +204,13 @@ lookup (const unsigned char sha1[static 20], int retrieve)
         }
 
       if (MAP_FAILED == (map = mmap (NULL, pack_size, PROT_READ, MAP_SHARED, fd, 0)))
-        goto fail;
+        {
+          close (fd);
+
+          goto fail;
+        }
+
+      close (fd);
 
       header = (const struct pack_header *) map;
       data_start = sizeof (*header) + header->entry_count * sizeof (*entries);
@@ -259,30 +267,69 @@ lookup (const unsigned char sha1[static 20], int retrieve)
 
       munmap ((void *) map, pack_size);
 
-      close (fd);
-
       return 0;
 
 next:
-      result = 0;
+
+      munmap ((void *) map, pack_size);
+
+      continue;
 
 fail:
+
       if (map != MAP_FAILED)
         munmap ((void *) map, pack_size);
 
-      close (fd);
+      printf ("500 Lookup failed: %s\n", strerror (errno));
+
+      return -1;
     }
+
+  errno = ENOENT;
+
+  printf ("404 Entity not found\n");
 
   return -1;
 }
 
-static void
-store (const unsigned char sha1[static 20], long long size)
+/* Temporarily modifies `path' */
+static int
+pmkdir (char *path)
 {
-  char tmp_path[11], buffer[4096];
+  char *c;
+
+  c = path;
+
+  while (NULL != (c = strchr (c + 1, '/')))
+    {
+      *c = 0;
+
+      if (-1 == mkdir (path, 0700) && errno != EEXIST)
+        {
+          *c = '/';
+
+          return -1;
+        }
+
+      *c = '/';
+    }
+
+  return 0;
+}
+
+static void
+store (long long size)
+{
+  char buffer[4096];
+  char tmp_path[11], output_path[43];
+  unsigned char sha1_digest[20];
   long long offset = 0;
   ssize_t ret;
   int fd;
+
+  struct sha1_context sha1;
+
+  sha1_init (&sha1);
 
   sprintf (tmp_path, "tmp.XXXXXX");
 
@@ -301,7 +348,7 @@ store (const unsigned char sha1[static 20], long long size)
       if (size == -1)
         amount = sizeof (buffer);
       else
-        amount = offset - size;
+        amount = size - offset;
 
       ret = read (STDIN_FILENO, buffer, amount);
 
@@ -322,9 +369,11 @@ store (const unsigned char sha1[static 20], long long size)
           goto done;
         }
 
-      offset += ret;
-
       amount = ret;
+      offset += amount;
+
+      sha1_add (&sha1, buffer, amount);
+
       write_offset = 0;
 
       while (write_offset < amount)
@@ -350,6 +399,36 @@ store (const unsigned char sha1[static 20], long long size)
         }
     }
 
+  sha1_finish (&sha1, sha1_digest);
+
+  sha1_to_path (output_path, sha1_digest);
+
+  if (-1 == pmkdir (output_path))
+    {
+      printf ("500 mkdir failed: %s\n", strerror (errno));
+
+      goto done;
+    }
+
+  if (do_fsync && -1 == fsync (fd))
+    {
+      printf ("500 fsync failed: %s\n", strerror (errno));
+
+      goto done;
+    }
+
+  if (-1 == rename (tmp_path, output_path))
+    {
+      printf ("500 rename failed: %s\n", strerror (errno));
+
+      goto done;
+    }
+
+  printf ("201 %.2s%.2s%s\n", output_path, output_path + 3, output_path + 6);
+
+  /* fsync succeeded, so we don't care about the result of close */
+  (void) close (fd);
+  fd = -1;
 
 done:
 
@@ -371,7 +450,7 @@ do_command (const char *command)
   char *ch;
 
   if (!strcmp (command, "PUT"))
-    store (sha1, -1);
+    store (-1);
   else if (!strncmp (command, "PUT ", strlen ("PUT ")))
     {
       size = strtoll (command + strlen ("PUT "), &ch, 10);
@@ -383,7 +462,7 @@ do_command (const char *command)
           return;
         }
 
-      store (sha1, size);
+      store (size);
     }
   else if (!strncmp (command, "GET ", strlen ("GET ")))
     {
@@ -407,10 +486,6 @@ do_command (const char *command)
 
       if (0 == lookup (sha1, 0))
         printf ("200 Entity exists\n");
-      else if (errno == ENOENT || errno == ENOTDIR)
-        printf ("404 Entity not found\n");
-      else
-        printf ("500 Lookup failed: %s\n", strerror (errno));
     }
   else
     printf ("405 Unknown command\n");
@@ -491,6 +566,8 @@ main (int argc, char **argv)
 
           if (!line_length)
             continue;
+
+          line[line_length] = 0;
 
           do_command (line);
         }
