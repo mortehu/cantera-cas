@@ -267,7 +267,7 @@ pmkdir (char *path)
     {
       *c = 0;
 
-      if (-1 == mkdir (path, 0700) && errno != EEXIST)
+      if (-1 == mkdir (path, 0777) && errno != EEXIST)
         {
           *c = '/';
 
