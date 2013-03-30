@@ -38,6 +38,7 @@
 #include <unistd.h>
 
 #include "sha1.h"
+#include "ca-cas.h"
 
 static int print_version;
 static int print_help;
@@ -49,22 +50,6 @@ static struct option long_options[] =
     { "version",        no_argument,  &print_version, 1 },
     { "help",           no_argument,  &print_help,    1 },
     { 0, 0, 0, 0 }
-};
-
-#define MAGIC
-
-struct pack_header
-{
-  uint64_t magic;
-  uint64_t entry_count;
-};
-
-/* 32 bytes */
-struct pack_entry
-{
-  unsigned char sha1[20];
-  uint64_t offset;
-  uint32_t size;
 };
 
 static int
@@ -98,30 +83,6 @@ parse_sha1_hex (unsigned char sha1_hex[static 20], const char *string)
     return -1;
 
   return 0;
-}
-
-static void
-sha1_to_path (char path[static 43], const unsigned char sha1[static 20])
-{
-  static const char hex[] = "0123456789abcdef";
-  unsigned int i;
-
-  path[0] = hex[sha1[0] >> 4];
-  path[1] = hex[sha1[0] & 15];
-  path[2] = '/';
-  path[3] = hex[sha1[1] >> 4];
-  path[4] = hex[sha1[1] & 15];
-  path[5] = '/';
-
-  for (i = 2; i < 20; ++i)
-    {
-      path[i * 2 + 2] = hex[sha1[i] >> 4];
-      path[i * 2 + 3] = hex[sha1[i] & 15];
-
-      /* 19 * 2 + 3 == 41 */
-    }
-
-  path[42] = 0;
 }
 
 static int
@@ -215,7 +176,7 @@ lookup (const unsigned char sha1[static 20], int retrieve)
       header = (const struct pack_header *) map;
       data_start = sizeof (*header) + header->entry_count * sizeof (*entries);
 
-      if (header->magic != 0x63617350 || data_start > pack_size)
+      if (header->magic != PACK_MAGIC || data_start > pack_size)
         {
           errno = EINVAL;
 

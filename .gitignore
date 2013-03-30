@@ -16,6 +16,7 @@
 .libs
 /aclocal.m4
 /ca-cas
+/ca-cas-repack
 /config.guess
 /config.h
 /config.h.in
