@@ -505,11 +505,13 @@ main (int argc, char **argv)
       return EXIT_SUCCESS;
     }
 
-  if (optind + 1 != argc)
-    errx (EX_USAGE, "Usage: %s [OPTION]... PATH", argv[0]);
-
-  if (-1 == chdir (argv[optind]))
-    err (EXIT_FAILURE, "Unable to chdir to '%s': %s", argv[optind], strerror (errno));
+  if (optind + 1 == argc)
+    {
+      if (-1 == chdir (argv[optind]))
+        err (EXIT_FAILURE, "Unable to chdir to '%s': %s", argv[optind], strerror (errno));
+    }
+  else if (optind + 1 < argc)
+    errx (EX_USAGE, "Usage: %s [OPTION]... [PATH]", argv[0]);
 
   if (command)
     do_command (command);
