@@ -219,6 +219,8 @@ lookup (const unsigned char sha1[static 20], int retrieve)
           goto fail;
         }
 
+      printf ("200 %lld\n", (long long) (end - offset));
+
       while (offset < end
              && -1 != (ret = write (STDOUT_FILENO, map + offset, end - offset)))
         offset += ret;
