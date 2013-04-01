@@ -38,7 +38,7 @@
 #include <sysexits.h>
 #include <unistd.h>
 
-#include "ca-cas.h"
+#include "ca-cas-internal.h"
 
 static int print_version;
 static int print_help;

@@ -1,25 +1,28 @@
 #ifndef CA_CAS_H_
 #define CA_CAS_H_ 1
 
-#include <stdint.h>
+#include <stdlib.h>
 
-#define PACK_MAGIC 0x63617350
+struct ca_cas_context;
 
-struct pack_header
-{
-  uint64_t magic;
-  uint64_t entry_count;
-};
-
-/* 32 bytes */
-struct pack_entry
-{
-  uint64_t offset;
-  uint32_t size;
-  unsigned char sha1[20];
-};
+struct ca_cas_context *
+ca_cas_connect (const char *hostname);
 
 void
-sha1_to_path (char path[static 43], const unsigned char sha1[static 20]);
+ca_cas_free (struct ca_cas_context *ctx);
+
+ssize_t
+ca_cas_get (struct ca_cas_context *ctx,
+            const unsigned char sha1[static 20], void **data);
+
+int
+ca_cas_put (struct ca_cas_context *ctx,
+            unsigned char sha1[static 20], const void *data, size_t size);
+
+void
+ca_cas_sha1_to_hex (const unsigned char sha1[static 20], char hex[static 41]);
+
+int
+ca_cas_hex_to_sha1 (unsigned char sha1[static 20], const char *hex);
 
 #endif /* !CA_CAS_H_ */

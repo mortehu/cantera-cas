@@ -38,7 +38,7 @@
 #include <unistd.h>
 
 #include "sha1.h"
-#include "ca-cas.h"
+#include "ca-cas-internal.h"
 
 static int print_version;
 static int print_help;
@@ -53,7 +53,7 @@ static struct option long_options[] =
 };
 
 static int
-parse_sha1_hex (unsigned char sha1_hex[static 20], const char *string)
+parse_sha1_hex (unsigned char sha1[static 20], const char *string)
 {
   static const unsigned char helper[26] =
     {
@@ -66,7 +66,7 @@ parse_sha1_hex (unsigned char sha1_hex[static 20], const char *string)
   unsigned int i;
   unsigned char *out;
 
-  out = sha1_hex;
+  out = sha1;
 
   for (i = 0; i < 40; i += 2, string += 2)
     {
@@ -122,6 +122,7 @@ lookup (const unsigned char sha1[static 20], int retrieve)
             }
 
           printf ("200 %lld\n", (long long) end);
+          fflush (stdout);
 
           while (offset < end
                  && -1 != (ret = sendfile (STDOUT_FILENO, fd, NULL, end - offset)))
@@ -222,7 +223,7 @@ lookup (const unsigned char sha1[static 20], int retrieve)
       printf ("200 %lld\n", (long long) (end - offset));
 
       while (offset < end
-             && -1 != (ret = write (STDOUT_FILENO, map + offset, end - offset)))
+             && -1 != (ret = fwrite (map + offset, 1, end - offset, stdout)))
         offset += ret;
 
       if (-1 == ret)
@@ -313,7 +314,7 @@ store (long long size)
       else
         amount = size - offset;
 
-      ret = read (STDIN_FILENO, buffer, amount);
+      ret = fread (buffer, 1, amount, stdin);
 
       if (ret <= 0)
         {
@@ -538,6 +539,8 @@ main (int argc, char **argv)
           line[line_length] = 0;
 
           do_command (line);
+
+          fflush (stdout);
         }
     }
 
