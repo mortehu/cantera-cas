@@ -131,15 +131,14 @@ write_pack (const unsigned char *hashes, size_t hash_count)
       if (-1 == (entity_size = lseek (entity_fd, 0, SEEK_END)))
         err (EXIT_FAILURE, "%s: failed to seek to end of file", entity_path);
 
-      if (-1 == lseek (entity_fd, 0, SEEK_SET))
-        err (EXIT_FAILURE, "%s: failed to seek to beginning of file", entity_path);
-
       while (offset < entity_size
-             && -1 != (ret = sendfile (pack_fd, entity_fd, NULL, entity_size - offset)))
-        offset += ret;
+             && 0 < (ret = sendfile (pack_fd, entity_fd, &offset, entity_size - offset)))
+        ;
 
       if (ret == -1)
         err (EXIT_FAILURE, "%s: sendfile failed", entity_path);
+      else if (ret == 0)
+        errx (EXIT_FAILURE, "%s: sendfile unexpectedly returned 0", entity_path);
 
       entries[j].size = entity_size;
       memcpy (entries[j].sha1, sha1, 20);
