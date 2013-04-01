@@ -159,14 +159,16 @@ write_pack (const unsigned char *hashes, size_t hash_count)
 
       sprintf (path, "packs/%08zx.pack", i);
 
-      if (0 == access (path, F_OK))
-        continue;
+      if (-1 == link (tmp_path, path))
+        {
+          if (errno == EEXIST)
+            continue;
 
-      if (errno != ENOENT)
-        err (EXIT_FAILURE, "%s: acces failed", path);
+          err (EXIT_FAILURE, "%s: link failed", path);
+        }
 
-      if (-1 == rename (tmp_path, path))
-        err (EXIT_FAILURE, "%s: failed to rename to %s", tmp_path, path);
+      if (-1 == unlink (tmp_path))
+        err (EXIT_FAILURE, "%s: failed to unlink", tmp_path);
 
       break;
     }
