@@ -5,6 +5,19 @@
 
 struct ca_cas_context;
 
+/*****************************************************************************/
+
+const char *
+ca_cas_last_error (void);
+
+void
+ca_cas_clear_error (void);
+
+void
+ca_cas_set_error (const char *format, ...);
+
+/*****************************************************************************/
+
 struct ca_cas_context *
 ca_cas_connect (const char *hostname);
 
