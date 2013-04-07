@@ -113,6 +113,7 @@ done:
     close (fd);
 
   free (hostname_buffer);
+  freeaddrinfo (addrs);
 
   return result;
 }
