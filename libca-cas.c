@@ -33,7 +33,7 @@ ca_cas_connect (const char *hostname)
 
   struct ca_cas_context *result = NULL;
   FILE *stream = NULL;
-  int fd = -1;
+  int fd = -1, gai_error;
 
   if (!(hostname_buffer = strdup (hostname)))
     return NULL;
@@ -47,20 +47,35 @@ ca_cas_connect (const char *hostname)
   hints.ai_flags = AI_CANONNAME;
   hints.ai_family = PF_UNSPEC;
 
-  getaddrinfo (hostname_buffer, port ? port : "5993", &hints, &addrs);
+  if (0 != (gai_error = getaddrinfo (hostname_buffer, port ? port : "5993", &hints, &addrs)))
+    {
+      ca_cas_set_error ("Failed to resolve '%s': %s", hostname_buffer, gai_strerror (gai_error));
+
+      goto done;
+    }
 
   if (!addrs)
-    goto done;
+    {
+      ca_cas_set_error ("getaddrinfo return no addresses for '%s'", hostname_buffer);
+
+      goto done;
+    }
 
   for (addr = addrs; addr; addr = addr->ai_next)
     {
-      fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+      fd = socket (addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 
       if (fd == -1)
-        continue;
+        {
+          ca_cas_set_error ("socket failed: %s", strerror (errno));
+
+          continue;
+        }
 
       if (-1 != connect (fd, addr->ai_addr, addr->ai_addrlen))
         break;
+
+      ca_cas_set_error ("connect failed: %s", strerror (errno));
 
       close(fd);
       fd = -1;
@@ -70,12 +85,22 @@ ca_cas_connect (const char *hostname)
     goto done;
 
   if (!(stream = fdopen (fd, "r+")))
-    goto done;
+    {
+      ca_cas_set_error ("Failed to create socket stream using fdopen: %s",
+                        strerror (errno));
+
+      goto done;
+    }
 
   fd = -1;
 
   if (!(result = calloc (1, sizeof (*result))))
-    goto done;
+    {
+      ca_cas_set_error ("Memory allocate for %zu bytes failed",
+                        sizeof (*result));
+
+      goto done;
+    }
 
   result->stream = stream;
   stream = NULL;
@@ -118,7 +143,12 @@ ca_cas_get (struct ca_cas_context *ctx,
     goto fail;
 
   if (!(fgets (buffer, sizeof (buffer), ctx->stream)))
-    goto fail;
+    {
+      ca_cas_set_error ("fgets failed reading GET response: %s",
+                        strerror (errno));
+
+      goto fail;
+    }
 
   buffer_length = strlen (buffer);
 
@@ -128,16 +158,36 @@ ca_cas_get (struct ca_cas_context *ctx,
   buffer[--buffer_length] = 0;
 
   if (strncmp (buffer, "200 ", 4))
-    goto fail;
+    {
+      errno = ENOENT;
+
+      ca_cas_set_error ("GET response code was not 200");
+
+      goto fail;
+    }
 
   if (0 > (result = (ssize_t) strtoll (buffer + 4, NULL, 10)))
-    goto fail;
+    {
+      errno = EINVAL;
+
+      ca_cas_set_error ("Unable to parse GET response header");
+
+      goto fail;
+    }
 
   if (!(*data = malloc (result)))
-    goto fail;
+    {
+      ca_cas_set_error ("Failed to allocate %zu bytes for response entity", result);
+
+      goto fail;
+    }
 
   if (-1 == read_all (ctx->stream, *data, result))
-    goto fail;
+    {
+      ca_cas_set_error ("Error reading response entity: %s", ca_cas_last_error ());
+
+      goto fail;
+    }
 
   return result;
 
@@ -156,22 +206,40 @@ ca_cas_put (struct ca_cas_context *ctx,
   char buffer[47];
   size_t buffer_length = 0;
 
-  if (0 > fprintf (ctx->stream, "PUT %llu\n", (unsigned long long) size)
+  buffer_length = sprintf (buffer, "PUT %llu\n", (unsigned long long) size);
+
+  if (-1 == write_all (ctx->stream, buffer, buffer_length)
       || -1 == write_all (ctx->stream, data, size))
-    goto fail;
+    {
+      ca_cas_set_error ("Failed write PUT request: %s", ca_cas_last_error ());
+
+      goto fail;
+    }
 
   if (!(fgets (buffer, sizeof (buffer), ctx->stream)))
-    goto fail;
+    {
+      ca_cas_set_error ("Error reading PUT response: %s", strerror (errno));
+
+      goto fail;
+    }
 
   buffer_length = strlen (buffer);
 
   if (!buffer_length || buffer[buffer_length - 1] != '\n')
-    goto fail;
+    {
+      ca_cas_set_error ("Missing newline in PUT response");
+
+      goto fail;
+    }
 
   buffer[--buffer_length] = 0;
 
   if (strncmp (buffer, "201 ", 4))
-    goto fail;
+    {
+      ca_cas_set_error ("PUT response code was not 201");
+
+      goto fail;
+    }
 
   ca_cas_hex_to_sha1 (sha1, buffer + 4);
 
@@ -250,7 +318,14 @@ write_all (FILE *stream, const void *data, size_t size)
   while (size)
     {
       if (0 > (ret = fwrite (cdata, 1, size, stream)))
-        return -1;
+        {
+          if (ret == 0)
+            ca_cas_set_error ("Short write (fwrite returned 0)");
+          else
+            ca_cas_set_error ("%s", strerror (errno));
+
+          return -1;
+        }
 
       size -= ret;
       cdata += ret;
@@ -268,7 +343,14 @@ read_all (FILE *stream, void *data, size_t size)
   while (size)
     {
       if (0 > (ret = fread (cdata, 1, size, stream)))
-        return -1;
+        {
+          if (ret == 0)
+            ca_cas_set_error ("Short read (fread returned 0)");
+          else
+            ca_cas_set_error ("%s", strerror (errno));
+
+          return -1;
+        }
 
       size -= ret;
       cdata += ret;
