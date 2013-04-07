@@ -284,7 +284,7 @@ pmkdir (char *path)
 static void
 store (long long size)
 {
-  char buffer[4096];
+  char buffer[65536];
   char tmp_path[11], output_path[43];
   unsigned char sha1_digest[20];
   long long offset = 0;
@@ -312,7 +312,12 @@ store (long long size)
       if (size == -1)
         amount = sizeof (buffer);
       else
-        amount = size - offset;
+        {
+          amount = size - offset;
+
+          if (amount > sizeof (buffer))
+            amount = sizeof (buffer);
+        }
 
       ret = fread (buffer, 1, amount, stdin);
 
