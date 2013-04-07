@@ -138,9 +138,8 @@ ca_cas_get (struct ca_cas_context *ctx,
   strcpy (buffer, "GET ");
   ca_cas_sha1_to_hex (sha1, buffer + 4);
   buffer[44] = '\n';
-  buffer[45] = 0;
 
-  if (-1 == write_all (ctx->stream, buffer, 46))
+  if (-1 == write_all (ctx->stream, buffer, 45))
     goto fail;
 
   if (!(fgets (buffer, sizeof (buffer), ctx->stream)))
