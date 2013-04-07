@@ -256,26 +256,35 @@ fail:
   return -1;
 }
 
-/* Temporarily modifies `path' */
 static int
-pmkdir (char *path)
+pmkdir (unsigned char dir_0, unsigned char dir_1)
 {
-  char *c;
+  static uint32_t existing_dirs_0[256 / 32];
+  static uint32_t existing_dirs_1[65536 / 32];
 
-  c = path;
+  uint16_t subdir;
+  char path[6];
 
-  while (NULL != (c = strchr (c + 1, '/')))
+  if (0 == (existing_dirs_0[dir_0 >> 5] & (1 << (dir_0 & 0x1f))))
     {
-      *c = 0;
+      sprintf (path, "%02x", dir_0);
 
       if (-1 == mkdir (path, 0777) && errno != EEXIST)
-        {
-          *c = '/';
+        return -1;
 
-          return -1;
-        }
+      existing_dirs_0[dir_0 >> 5] |= (1 << (dir_0 & 0x1f));
+    }
 
-      *c = '/';
+  subdir = (dir_0 << 8) | dir_1;
+
+  if (0 == (existing_dirs_1[subdir >> 5] & (1 << (subdir & 0x1f))))
+    {
+      sprintf (path, "%02x/%02x", dir_0, dir_1);
+
+      if (-1 == mkdir (path, 0777) && errno != EEXIST)
+        return -1;
+
+      existing_dirs_1[subdir >> 5] |= (1 << (subdir & 0x1f));
     }
 
   return 0;
@@ -374,7 +383,7 @@ store (long long size)
 
   if (-1 == access (output_path, F_OK))
     {
-      if (-1 == pmkdir (output_path))
+      if (-1 == pmkdir (sha1_digest[0], sha1_digest[1]))
         {
           printf ("500 mkdir failed: %s\n", strerror (errno));
 
