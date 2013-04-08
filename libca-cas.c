@@ -129,10 +129,12 @@ ca_cas_free (struct ca_cas_context *ctx)
 
 ssize_t
 ca_cas_get (struct ca_cas_context *ctx,
-            const unsigned char sha1[static 20], void **data)
+            const unsigned char sha1[static 20], void **ret_data)
 {
   char buffer[47];
   size_t buffer_length = 0;
+
+  void *data;
   ssize_t result;
 
   strcpy (buffer, "GET ");
@@ -175,19 +177,21 @@ ca_cas_get (struct ca_cas_context *ctx,
       goto fail;
     }
 
-  if (!(*data = malloc (result)))
+  if (!(data = malloc (result)))
     {
       ca_cas_set_error ("Failed to allocate %zu bytes for response entity", result);
 
       goto fail;
     }
 
-  if (-1 == read_all (ctx->stream, *data, result))
+  if (-1 == read_all (ctx->stream, data, result))
     {
       ca_cas_set_error ("Error reading response entity: %s", ca_cas_last_error ());
 
       goto fail;
     }
+
+  *ret_data = data;
 
   return result;
 
