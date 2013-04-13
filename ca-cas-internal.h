@@ -18,3 +18,6 @@ struct pack_entry
 
 void
 sha1_to_path (char path[static 43], const unsigned char sha1[static 20]);
+
+int
+path_is_rotational (const char *path);

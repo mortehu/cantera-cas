@@ -38,16 +38,30 @@
 #include <sysexits.h>
 #include <unistd.h>
 
+#if HAVE_LINUX_FIEMAP_H
+#include <linux/fiemap.h>
+#include <linux/fs.h>
+#include <sys/ioctl.h>
+#endif
+
 #include "ca-cas-internal.h"
 
 static int print_version;
 static int print_help;
+static int skip_phys_sort;
 
 static struct option long_options[] =
 {
-    { "version",        no_argument,  &print_version, 1 },
-    { "help",           no_argument,  &print_help,    1 },
+    { "skip-phys-sort", no_argument, &skip_phys_sort, 1 },
+    { "version",        no_argument, &print_version,  1 },
+    { "help",           no_argument, &print_help,     1 },
     { 0, 0, 0, 0 }
+};
+
+struct hash
+{
+  unsigned char sha1[20];
+  off_t phys_offset;
 };
 
 static int
@@ -57,7 +71,7 @@ dir_filter (const struct dirent *ent)
 }
 
 static void
-write_pack (const unsigned char *hashes, size_t hash_count)
+write_pack (const struct hash *hashes, size_t hash_count)
 {
   char tmp_path[16];
 
@@ -103,7 +117,7 @@ write_pack (const unsigned char *hashes, size_t hash_count)
       int ret = 0, entity_fd;
       off_t offset = 0, entity_size;
 
-      sha1 = hashes + i * 20;
+      sha1 = hashes[i].sha1;
 
       j = (uint64_t) sha1[0] << 56
         | (uint64_t) sha1[1] << 48
@@ -177,16 +191,29 @@ write_pack (const unsigned char *hashes, size_t hash_count)
 
   for (i = 0; i < hash_count; ++i)
     {
-      const unsigned char *sha1;
-
       char entity_path[43];
 
-      sha1 = hashes + i * 20;
-
-      sha1_to_path (entity_path, sha1);
+      sha1_to_path (entity_path, hashes[i].sha1);
 
       unlink (entity_path);
     }
+}
+
+static int
+phys_offset_cmp (const void *vlhs, const void *vrhs)
+{
+  const struct hash *lhs = vlhs;
+  const struct hash *rhs = vrhs;
+
+  /* Subtraction does not work, since phys_offset is usually bigger than int */
+
+  if (lhs->phys_offset < rhs->phys_offset)
+    return -1;
+
+  if (lhs->phys_offset > rhs->phys_offset)
+    return 1;
+
+  return 0;
 }
 
 int
@@ -200,13 +227,14 @@ main (int argc, char **argv)
       8,  9
     };
 
-  unsigned char *hashes = NULL;
+  struct hash *hashes = NULL;
   size_t hash_count = 0, hash_alloc = 0;
+  int block_size;
 
   struct dirent **dir_ents;
   int i, dir_count;
 
-  while ((i = getopt_long (argc, argv, "c:", long_options, 0)) != -1)
+  while ((i = getopt_long (argc, argv, "", long_options, 0)) != -1)
     {
       switch (i)
         {
@@ -224,6 +252,8 @@ main (int argc, char **argv)
     {
       printf ("Usage: %s [OPTION]...\n"
              "\n"
+             "      --skip-phys-sort       do not sort files by physical offset before\n"
+             "                               copying (this is the default on SSDs)\n"
              "      --help     display this help and exit\n"
              "      --version  display version information and exit\n"
              "\n"
@@ -248,6 +278,9 @@ main (int argc, char **argv)
   else if (optind + 1 < argc)
     errx (EX_USAGE, "Usage: %s [OPTION]... [PATH]", argv[0]);
 
+  if (!skip_phys_sort && 0 == path_is_rotational ("."))
+    skip_phys_sort = 1;
+
   if (-1 == (dir_count = scandir(".", &dir_ents, dir_filter, alphasort)))
     err (EXIT_FAILURE, "scandir failed");
 
@@ -255,7 +288,7 @@ main (int argc, char **argv)
     {
       struct dirent **subdir_ents;
       int j, subdir_count;
-      char path[6];
+      char path[43];
 
       path[0] = dir_ents[i]->d_name[0];
       path[1] = dir_ents[i]->d_name[1];
@@ -285,7 +318,7 @@ main (int argc, char **argv)
 
               if (hash_count == hash_alloc)
                 {
-                  void *new_hashes;
+                  struct hash *new_hashes;
                   size_t new_alloc;
 
                   if (hash_alloc)
@@ -293,14 +326,14 @@ main (int argc, char **argv)
                   else
                     new_alloc = 4096;
 
-                  if (!(new_hashes = realloc (hashes, 20 * new_alloc)))
+                  if (!(new_hashes = realloc (hashes, sizeof (*hashes) * new_alloc)))
                     err (EXIT_FAILURE, "realloc failed");
 
                   hashes = new_hashes;
                   hash_alloc = new_alloc;
                 }
 
-              sha1 = hashes + 20 * hash_count;
+              sha1 = hashes[hash_count].sha1;
 
               sha1[0] = (hex_helper[path[0] & 0x1f] << 4) | (hex_helper[path[1] & 0x1f]);
               sha1[1] = (hex_helper[path[3] & 0x1f] << 4) | (hex_helper[path[4] & 0x1f]);
@@ -317,6 +350,38 @@ main (int argc, char **argv)
               if (k != 36 || ent->d_name[36])
                 continue;
 
+              if (!skip_phys_sort)
+                {
+                  int fd;
+
+                  struct
+                    {
+                      struct fiemap fiemap;
+                      struct fiemap_extent extent;
+                    } fm;
+
+                  strcpy (&path[6], ent->d_name);
+
+                  if (-1 == (fd = open (path, O_RDONLY)))
+                    err (EXIT_FAILURE, "Failed to open '%s' for reading", path);
+
+                  if (!block_size && -1 == ioctl(fd, FIGETBSZ, &block_size))
+                    err (EXIT_FAILURE, "Failed to get block size of '%s'", path);
+
+                  memset(&fm, 0, sizeof(fm));
+                  fm.fiemap.fm_start = 0;
+                  fm.fiemap.fm_length = block_size;
+                  fm.fiemap.fm_flags = 0;
+                  fm.fiemap.fm_extent_count = 1;
+
+                  if(-1 == ioctl(fd, FS_IOC_FIEMAP, (unsigned long) &fm))
+                    err (EXIT_FAILURE, "FS_IOC_FIEMAP failed for '%s'", path);
+
+                  hashes[hash_count].phys_offset = fm.fiemap.fm_extents[0].fe_physical;
+
+                  close(fd);
+                }
+
               ++hash_count;
             }
 
@@ -327,7 +392,11 @@ main (int argc, char **argv)
         }
     }
 
-  write_pack (hashes, hash_count);
+  if (!skip_phys_sort)
+    qsort (hashes, hash_count, sizeof (*hashes), phys_offset_cmp);
+
+  if (hash_count)
+    write_pack (hashes, hash_count);
 
   return EXIT_SUCCESS;
 }
