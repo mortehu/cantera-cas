@@ -313,7 +313,7 @@ store (long long size)
       goto done;
     }
 
-  while (size == -1 || offset < size)
+  while ((size == -1 && !feof (stdin)) || offset < size)
     {
       size_t amount;
       long long write_offset;
