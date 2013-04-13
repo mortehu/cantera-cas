@@ -46,9 +46,10 @@ static int do_fsync = 1;
 
 static struct option long_options[] =
 {
-    { "no-fsync",       no_argument,  &do_fsync,      0 },
-    { "version",        no_argument,  &print_version, 1 },
-    { "help",           no_argument,  &print_help,    1 },
+    { "command",  required_argument, NULL,           'c' },
+    { "no-fsync",       no_argument, &do_fsync,      0 },
+    { "version",        no_argument, &print_version, 1 },
+    { "help",           no_argument, &print_help,    1 },
     { 0, 0, 0, 0 }
 };
 
