@@ -293,7 +293,6 @@ main (int argc, char **argv)
       path[0] = dir_ents[i]->d_name[0];
       path[1] = dir_ents[i]->d_name[1];
       path[2] = '/';
-      path[5] = 0;
 
       if (-1 == (subdir_count = scandir(dir_ents[i]->d_name, &subdir_ents, dir_filter, alphasort)))
         err (EXIT_FAILURE, "%s: scandir failed", dir_ents[i]->d_name);
@@ -305,6 +304,7 @@ main (int argc, char **argv)
 
           path[3] = subdir_ents[j]->d_name[0];
           path[4] = subdir_ents[j]->d_name[1];
+          path[5] = 0;
 
           if (!(dir = opendir (path)))
             err (EXIT_FAILURE, "%s: opendir failed", path);
@@ -360,6 +360,7 @@ main (int argc, char **argv)
                       struct fiemap_extent extent;
                     } fm;
 
+                  path[5] = '/';
                   strcpy (&path[6], ent->d_name);
 
                   if (-1 == (fd = open (path, O_RDONLY)))
