@@ -27,7 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <dirent.h>
 #include <err.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -38,12 +37,7 @@
 #include <sysexits.h>
 #include <unistd.h>
 
-#if HAVE_LINUX_FIEMAP_H
-#include <linux/fiemap.h>
-#include <linux/fs.h>
-#include <sys/ioctl.h>
-#endif
-
+#include "ca-cas.h"
 #include "ca-cas-internal.h"
 
 static int print_version;
@@ -58,20 +52,8 @@ static struct option long_options[] =
     { 0, 0, 0, 0 }
 };
 
-struct hash
-{
-  unsigned char sha1[20];
-  off_t phys_offset;
-};
-
-static int
-dir_filter (const struct dirent *ent)
-{
-  return isxdigit (ent->d_name[0]) && isxdigit (ent->d_name[1]) && !ent->d_name[2];
-}
-
 static void
-write_pack (const struct hash *hashes, size_t hash_count)
+write_pack (const struct ca_cas_object *hashes, size_t hash_count)
 {
   char tmp_path[16];
 
@@ -186,24 +168,13 @@ write_pack (const struct hash *hashes, size_t hash_count)
 
       break;
     }
-
-  /* Now that the entities are in a synced .pack file, they can be removed */
-
-  for (i = 0; i < hash_count; ++i)
-    {
-      char entity_path[43];
-
-      sha1_to_path (entity_path, hashes[i].sha1);
-
-      unlink (entity_path);
-    }
 }
 
 static int
 phys_offset_cmp (const void *vlhs, const void *vrhs)
 {
-  const struct hash *lhs = vlhs;
-  const struct hash *rhs = vrhs;
+  const struct ca_cas_object *lhs = vlhs;
+  const struct ca_cas_object *rhs = vrhs;
 
   /* Subtraction does not work, since phys_offset is usually bigger than int */
 
@@ -219,20 +190,11 @@ phys_offset_cmp (const void *vlhs, const void *vrhs)
 int
 main (int argc, char **argv)
 {
-  static const unsigned char hex_helper[26] =
-    {
-      0, 10, 11, 12, 13, 14, 15,  0,
-      0,  0,  0,  0,  0,  0,  0,  0,
-      0,  1,  2,  3,  4,  5,  6,  7,
-      8,  9
-    };
+  struct ca_cas_object *objects = NULL;
+  size_t object_count = 0;
 
-  struct hash *hashes = NULL;
-  size_t hash_count = 0, hash_alloc = 0;
-  int block_size;
-
-  struct dirent **dir_ents;
-  int i, dir_count;
+  unsigned int scan_flags = CA_CAS_SCAN_FILES;
+  int i;
 
   while ((i = getopt_long (argc, argv, "", long_options, 0)) != -1)
     {
@@ -278,126 +240,30 @@ main (int argc, char **argv)
   else if (optind + 1 < argc)
     errx (EX_USAGE, "Usage: %s [OPTION]... [PATH]", argv[0]);
 
-  if (!skip_phys_sort && 0 == path_is_rotational ("."))
-    skip_phys_sort = 1;
+  if (!skip_phys_sort && 0 != path_is_rotational ("."))
+    scan_flags |= CA_CAS_INCLUDE_OFFSETS;
 
-  if (-1 == (dir_count = scandir(".", &dir_ents, dir_filter, alphasort)))
-    err (EXIT_FAILURE, "scandir failed");
+  if (-1 == scan_objects (&objects, &object_count, scan_flags))
+    errx (EXIT_FAILURE, "scan_objects failed: %s", ca_cas_last_error ());
 
-  for (i = 0; i < dir_count; ++i)
+  if (!object_count)
+    return EXIT_SUCCESS;
+
+  if (0 != (scan_flags & CA_CAS_INCLUDE_OFFSETS))
+    qsort (objects, object_count, sizeof (*objects), phys_offset_cmp);
+
+  write_pack (objects, object_count);
+
+  /* Now that the entities are in a synced .pack file, they can be removed */
+
+  for (i = 0; i < object_count; ++i)
     {
-      struct dirent **subdir_ents;
-      int j, subdir_count;
-      char path[43];
+      char entity_path[43];
 
-      path[0] = dir_ents[i]->d_name[0];
-      path[1] = dir_ents[i]->d_name[1];
-      path[2] = '/';
+      sha1_to_path (entity_path, objects[i].sha1);
 
-      if (-1 == (subdir_count = scandir(dir_ents[i]->d_name, &subdir_ents, dir_filter, alphasort)))
-        err (EXIT_FAILURE, "%s: scandir failed", dir_ents[i]->d_name);
-
-      for (j = 0; j < subdir_count; ++j)
-        {
-          DIR *dir;
-          struct dirent *ent;
-
-          path[3] = subdir_ents[j]->d_name[0];
-          path[4] = subdir_ents[j]->d_name[1];
-          path[5] = 0;
-
-          if (!(dir = opendir (path)))
-            err (EXIT_FAILURE, "%s: opendir failed", path);
-
-          errno = 0;
-
-          while (NULL != (ent = readdir (dir)))
-            {
-              unsigned int k;
-              unsigned char *sha1;
-
-              if (hash_count == hash_alloc)
-                {
-                  struct hash *new_hashes;
-                  size_t new_alloc;
-
-                  if (hash_alloc)
-                    new_alloc = hash_alloc * 3 / 2;
-                  else
-                    new_alloc = 4096;
-
-                  if (!(new_hashes = realloc (hashes, sizeof (*hashes) * new_alloc)))
-                    err (EXIT_FAILURE, "realloc failed");
-
-                  hashes = new_hashes;
-                  hash_alloc = new_alloc;
-                }
-
-              sha1 = hashes[hash_count].sha1;
-
-              sha1[0] = (hex_helper[path[0] & 0x1f] << 4) | (hex_helper[path[1] & 0x1f]);
-              sha1[1] = (hex_helper[path[3] & 0x1f] << 4) | (hex_helper[path[4] & 0x1f]);
-
-              for (k = 0; k < 36; k += 2)
-                {
-                  if (!isxdigit (ent->d_name[k]) || !isxdigit (ent->d_name[k + 1]))
-                    break;
-
-                  sha1[2 + k / 2] = (hex_helper[ent->d_name[k] & 0x1f] << 4)
-                                  | (hex_helper[ent->d_name[k + 1] & 0x1f]);
-                }
-
-              if (k != 36 || ent->d_name[36])
-                continue;
-
-              if (!skip_phys_sort)
-                {
-                  int fd;
-
-                  struct
-                    {
-                      struct fiemap fiemap;
-                      struct fiemap_extent extent;
-                    } fm;
-
-                  path[5] = '/';
-                  strcpy (&path[6], ent->d_name);
-
-                  if (-1 == (fd = open (path, O_RDONLY)))
-                    err (EXIT_FAILURE, "Failed to open '%s' for reading", path);
-
-                  if (!block_size && -1 == ioctl(fd, FIGETBSZ, &block_size))
-                    err (EXIT_FAILURE, "Failed to get block size of '%s'", path);
-
-                  memset(&fm, 0, sizeof(fm));
-                  fm.fiemap.fm_start = 0;
-                  fm.fiemap.fm_length = block_size;
-                  fm.fiemap.fm_flags = 0;
-                  fm.fiemap.fm_extent_count = 1;
-
-                  if(-1 == ioctl(fd, FS_IOC_FIEMAP, (unsigned long) &fm))
-                    err (EXIT_FAILURE, "FS_IOC_FIEMAP failed for '%s'", path);
-
-                  hashes[hash_count].phys_offset = fm.fiemap.fm_extents[0].fe_physical;
-
-                  close(fd);
-                }
-
-              ++hash_count;
-            }
-
-          if (errno)
-            err (EXIT_FAILURE, "%s: readdir failed", path);
-
-          closedir (dir);
-        }
+      unlink (entity_path);
     }
-
-  if (!skip_phys_sort)
-    qsort (hashes, hash_count, sizeof (*hashes), phys_offset_cmp);
-
-  if (hash_count)
-    write_pack (hashes, hash_count);
 
   return EXIT_SUCCESS;
 }
