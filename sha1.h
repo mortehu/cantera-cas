@@ -1,6 +1,8 @@
 #ifndef SHA1_H_
 #define SHA1_H_ 1
 
+#include <stdint.h>
+
 struct sha1_context
 {
   uint64_t size;
