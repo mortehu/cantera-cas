@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdlib.h>
 
 #define PACK_MAGIC 0x63617350
 
@@ -25,6 +26,9 @@ struct pack_entry
 
 void
 sha1_to_path (char path[static 43], const unsigned char sha1[static 20]);
+
+void
+binary_to_hex (char *output, const unsigned char *input, size_t size);
 
 int
 path_is_rotational (const char *path);
