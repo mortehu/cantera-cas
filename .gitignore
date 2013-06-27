@@ -10,6 +10,7 @@
 *.status
 *.sw?
 *.tab
+*_test
 *~
 .deps
 .dirstamp
@@ -17,6 +18,7 @@
 /aclocal.m4
 /ar-lib
 /ca-cas
+/ca-cas-amazon-glacier
 /ca-cas-repack
 /config.guess
 /config.h
