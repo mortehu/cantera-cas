@@ -212,7 +212,7 @@ main (int argc, char **argv)
 
   if (print_help)
     {
-      printf ("Usage: %s [OPTION]...\n"
+      printf ("Usage: %s [OPTION]... [ROOT]\n"
              "\n"
              "      --skip-phys-sort       do not sort files by physical offset before\n"
              "                               copying (this is the default on SSDs)\n"

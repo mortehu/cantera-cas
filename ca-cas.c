@@ -543,7 +543,7 @@ main (int argc, char **argv)
 
   if (print_help)
     {
-      printf ("Usage: %s [OPTION]...\n"
+      printf ("Usage: %s [OPTION]... [ROOT]\n"
              "\n"
              "  -c, --command=STRING       execute commands in STRING and exit\n"
              "      --help     display this help and exit\n"
