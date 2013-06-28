@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <dirent.h>
 #include <err.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -90,11 +91,14 @@ static int
 lookup (const unsigned char sha1[static 20], int retrieve)
 {
   char path[43];
-  unsigned int i;
 
   int fd;
   ssize_t ret = 0;
   off_t offset = 0, end;
+
+  struct dirent *ent;
+  int dirfd;
+  DIR *dir = NULL;
 
   sha1_to_path (path, sha1);
 
@@ -142,8 +146,26 @@ lookup (const unsigned char sha1[static 20], int retrieve)
       return -1;
     }
 
-  for (i = 0; ; ++i)
+  if (-1 == (dirfd = open ("packs", O_DIRECTORY | O_RDONLY)))
     {
+      printf ("500 open \"packs\" directory: %s\n", strerror (errno));
+
+      return -1;
+    }
+
+  if (!(dir = fdopendir (dirfd)))
+    {
+      printf ("500 opendir failed: %s\n", strerror (errno));
+
+      close (dirfd);
+
+      return -1;
+    }
+
+  for (;;)
+    {
+      const char *extension;
+
       off_t pack_size;
 
       const uint8_t *map = MAP_FAILED;
@@ -151,9 +173,24 @@ lookup (const unsigned char sha1[static 20], int retrieve)
       const struct pack_entry *entries;
       uint64_t j, data_start;
 
-      sprintf (path, "packs/%08x.pack", i);
+      int ok = 0;
 
-      if (-1 == (fd = open (path, O_RDONLY)))
+      errno = 0;
+
+      if (!(ent = readdir (dir)))
+        {
+          if (!errno)
+            goto not_found;
+
+          printf ("500 readdir failed: %s\n", strerror (errno));
+        }
+
+      if (ent->d_name[0] == '.'
+          || !(extension = strrchr (ent->d_name, '.'))
+          || strcmp (extension, ".pack"))
+        continue;
+
+      if (-1 == (fd = openat (dirfd, ent->d_name, O_RDONLY)))
         break;
 
       if (-1 == (pack_size = lseek (fd, 0, SEEK_END)))
@@ -230,18 +267,17 @@ lookup (const unsigned char sha1[static 20], int retrieve)
       if (-1 == ret)
         goto fail;
 
-      munmap ((void *) map, pack_size);
-
-      return 0;
+      ok = 1;
 
 next:
-
       munmap ((void *) map, pack_size);
+
+      if (ok)
+        return 0;
 
       continue;
 
 fail:
-
       if (map != MAP_FAILED)
         munmap ((void *) map, pack_size);
 
@@ -249,6 +285,11 @@ fail:
 
       return -1;
     }
+
+not_found:
+
+  if (dir)
+    closedir (dir);
 
   errno = ENOENT;
 
