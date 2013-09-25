@@ -55,7 +55,7 @@ static struct option long_options[] =
 static void
 write_pack (const struct ca_cas_object *hashes, size_t hash_count)
 {
-  char tmp_path[16];
+  char tmp_path[32];
 
   struct pack_header *header;
   struct pack_entry *entries;
@@ -67,7 +67,7 @@ write_pack (const struct ca_cas_object *hashes, size_t hash_count)
   if (-1 == mkdir ("packs", 0777) && errno != EEXIST)
     err (EXIT_FAILURE, "mkdir failed");
 
-  sprintf (tmp_path, "pack.tmp.XXXXXX");
+  sprintf (tmp_path, "packs/pack.tmp.XXXXXX");
 
   /* XXX: unlink temporary file on failure */
 
