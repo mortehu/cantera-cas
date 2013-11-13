@@ -38,8 +38,9 @@
 #include <sysexits.h>
 #include <unistd.h>
 
-#include "sha1.h"
 #include "ca-cas-internal.h"
+#include "ca-cas.h"
+#include "sha1.h"
 
 static int print_version;
 static int print_help;
@@ -155,7 +156,7 @@ lookup (const unsigned char sha1[static 20], int retrieve)
 
   if (!(dir = fdopendir (dirfd)))
     {
-      printf ("500 opendir failed: %s\n", strerror (errno));
+      printf ("500 fdopendir failed: %s\n", strerror (errno));
 
       close (dirfd);
 
@@ -465,6 +466,32 @@ done:
     }
 }
 
+static int
+print_object (struct ca_cas_object *object, void *arg)
+{
+  char hex[41];
+
+  ca_cas_sha1_to_hex (object->sha1, hex);
+
+  printf ("%s\n", hex);
+
+  return 0;
+}
+
+static void
+list (void)
+{
+  if (-1 == scan_objects (print_object, CA_CAS_SCAN_FILES | CA_CAS_SCAN_PACKS,
+                          NULL))
+    {
+      printf ("500 %s\n", ca_cas_last_error ());
+
+      return;
+    }
+
+  printf ("200 Done\n");
+}
+
 static void
 do_command (const char *command)
 {
@@ -510,6 +537,8 @@ do_command (const char *command)
       if (0 == lookup (sha1, 0))
         printf ("200 Entity exists\n");
     }
+  else if (!strcmp (command, "LIST"))
+    list();
   else
     printf ("405 Unknown command\n");
 }

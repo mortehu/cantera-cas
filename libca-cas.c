@@ -316,23 +316,14 @@ ca_cas_hex_to_sha1 (unsigned char sha1[static 20], const char *hex)
 static int
 write_all (FILE *stream, const void *data, size_t size)
 {
-  const char *cdata = data;
-  size_t ret;
-
-  while (size)
+  if (size != fwrite (data, 1, size, stream))
     {
-      if (0 > (ret = fwrite (cdata, 1, size, stream)))
-        {
-          if (ret == 0)
-            ca_cas_set_error ("Short write (fwrite returned 0)");
-          else
-            ca_cas_set_error ("%s", strerror (errno));
+      if (!ferror (stream))
+        ca_cas_set_error ("Short write");
+      else
+        ca_cas_set_error ("%s", strerror (errno));
 
-          return -1;
-        }
-
-      size -= ret;
-      cdata += ret;
+      return -1;
     }
 
   return 0;
@@ -341,23 +332,14 @@ write_all (FILE *stream, const void *data, size_t size)
 static int
 read_all (FILE *stream, void *data, size_t size)
 {
-  char *cdata = data;
-  size_t ret;
-
-  while (size)
+  if (size != fread (data, 1, size, stream))
     {
-      if (0 > (ret = fread (cdata, 1, size, stream)))
-        {
-          if (ret == 0)
-            ca_cas_set_error ("Short read (fread returned 0)");
-          else
-            ca_cas_set_error ("%s", strerror (errno));
+      if (!ferror (stream))
+        ca_cas_set_error ("Short read (fread returned 0)");
+      else
+        ca_cas_set_error ("%s", strerror (errno));
 
-          return -1;
-        }
-
-      size -= ret;
-      cdata += ret;
+      return -1;
     }
 
   return 0;

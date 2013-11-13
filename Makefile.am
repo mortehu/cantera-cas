@@ -15,6 +15,8 @@ libca_cas_internal_a_SOURCES = \
   ca-cas-internal.h \
   detect-rotational.c \
   error.c \
+  libca-cas.c \
+  pack.c \
   scan-objects.c \
   sha1-to-path.c \
   sha1.c \

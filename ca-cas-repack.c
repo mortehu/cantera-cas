@@ -243,7 +243,7 @@ main (int argc, char **argv)
   if (!skip_phys_sort && 0 != path_is_rotational ("."))
     scan_flags |= CA_CAS_INCLUDE_OFFSETS;
 
-  if (-1 == scan_objects (&objects, &object_count, scan_flags))
+  if (-1 == get_objects (&objects, &object_count, scan_flags))
     errx (EXIT_FAILURE, "scan_objects failed: %s", ca_cas_last_error ());
 
   if (!object_count)
