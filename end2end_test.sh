@@ -117,3 +117,20 @@ do
 
   expect_n_objects 3
 done
+
+for x in `seq 3 30`
+do
+  put "data$x"
+done
+
+for x in `seq 3 30`
+do
+  test_200 "data$x"
+done
+
+./ca-cas-repack --full --delete "$repo"
+
+for x in `seq 3 30`
+do
+  test_200 "data$x"
+done
