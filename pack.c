@@ -85,7 +85,7 @@ CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
       const char *extension;
 
       struct ca_cas_pack_handle handle;
-      size_t i, data_start;
+      size_t i;
 
       if (!(ent = readdir (CA_cas_pack_dir)))
         {
@@ -138,8 +138,9 @@ CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
       fd = -1;
 
       handle.data = (const char *) map;
+      handle.size = pack_size;
       handle.header = (const struct pack_header *) map;
-      data_start = sizeof (*handle.header) + handle.header->entry_count * sizeof (*handle.entries);
+      handle.data_start = sizeof (*handle.header) + handle.header->entry_count * sizeof (*handle.entries);
 
       if (handle.header->magic != PACK_MAGIC)
         {
@@ -150,7 +151,7 @@ CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
           goto done;
         }
 
-      if (data_start > pack_size)
+      if (handle.data_start > pack_size)
         {
           ca_cas_set_error ("Data pointer in pack header points beyond "
                             "end of file");

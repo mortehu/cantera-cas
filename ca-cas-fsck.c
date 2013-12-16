@@ -41,12 +41,14 @@
 #include "sha1.h"
 
 static int skip_objects;
+static int skip_sha1;
 static int print_version;
 static int print_help;
 
 static struct option long_options[] =
 {
     { "skip-objects",   no_argument, &skip_objects,   1 },
+    { "skip-sha1",      no_argument, &skip_sha1,      1 },
     { "version",        no_argument, &print_version,  1 },
     { "help",           no_argument, &print_help,     1 },
     { 0, 0, 0, 0 }
@@ -129,6 +131,58 @@ check_packs (void)
   if (-1 == (pack_count = CA_cas_pack_get_handles (&packs)))
     errx (EXIT_FAILURE, "error opening pack files: %s", ca_cas_last_error ());
 
+  /* In the first pass, we do simple sanity checks.  */
+  for (i = 0; i < pack_count; ++i)
+    {
+      pack = &packs[i];
+
+      size_t sum_size = 0;
+
+      for (entry_index = 0; entry_index < pack->header->entry_count; ++entry_index)
+        {
+          const struct pack_entry *entry = &pack->entries[entry_index];
+
+          if (!entry->offset)
+            continue;
+
+          if (entry->offset < pack->data_start)
+            {
+              printf("%s item %zu: first byte is inside pack file header\n",
+                     pack->path, entry_index);
+
+              broken = 1;
+
+              break;
+            }
+          else if (entry->offset + entry->size > pack->size)
+            {
+              printf("%s item %zu: entry extends past end-of-file\n",
+                     pack->path, entry_index);
+
+              broken = 1;
+
+              break;
+            }
+
+          sum_size += entry->size;
+        }
+
+      /* Verify that the total size of the entries in the pack file corresponds
+       * to the size of the pack file.  */
+      if (sum_size + pack->data_start != pack->size)
+        {
+          printf("%s: unexpected pack file size %zu, expected %zu\n",
+                 pack->path, pack->size, sum_size + pack->data_start);
+
+          broken = 1;
+        }
+    }
+
+  /* In the second pass, we actually verify the SHA-1 digests.  */
+
+  if (skip_sha1)
+    return;
+
   for (i = 0; i < pack_count; ++i)
     {
       pack = &packs[i];
@@ -188,6 +242,7 @@ main (int argc, char **argv)
       printf ("Usage: %s [OPTION]... [ROOT]\n"
              "\n"
              "      --skip-objects         only process pack files\n"
+             "      --skip-sha1            do not verify SHA-1 digest\n"
              "      --help     display this help and exit\n"
              "      --version  display version information and exit\n"
              "\n"
@@ -211,6 +266,9 @@ main (int argc, char **argv)
     }
   else if (optind + 1 < argc)
     errx (EX_USAGE, "Usage: %s [OPTION]... [PATH]", argv[0]);
+
+  if (skip_sha1)
+    skip_objects = 1;
 
   if (!skip_objects
       && -1 == scan_objects (check_object, CA_CAS_SCAN_FILES, NULL))

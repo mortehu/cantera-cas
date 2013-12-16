@@ -28,6 +28,8 @@ struct ca_cas_pack_handle
 {
   char *path;
   const char *data;
+  size_t data_start;
+  size_t size;
   const struct pack_header *header;
   const struct pack_entry *entries;
 };
