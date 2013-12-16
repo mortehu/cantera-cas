@@ -20,6 +20,7 @@
 /ar-lib
 /ca-cas
 /ca-cas-amazon-glacier
+/ca-cas-fsck
 /ca-cas-prune-packed
 /ca-cas-repack
 /compile

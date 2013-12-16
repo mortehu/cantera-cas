@@ -163,3 +163,5 @@ done
 test_200 "data000000"
 test_200 "data000001"
 test_200 "data000002"
+
+./ca-cas-fsck "$repo"
