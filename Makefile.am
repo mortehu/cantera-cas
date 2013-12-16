@@ -4,6 +4,7 @@ include_HEADERS = ca-cas.h
 bin_PROGRAMS = \
   ca-cas \
   ca-cas-amazon-glacier \
+  ca-cas-prune-packed \
   ca-cas-repack
 
 ACLOCAL_AMFLAGS = -I m4
@@ -32,6 +33,9 @@ ca_cas_LDADD = libca-cas-internal.a
 
 ca_cas_amazon_glacier_SOURCES = ca-cas-amazon-glacier.c
 ca_cas_amazon_glacier_LDADD = $(PACKAGES_LIBS) libca-cas-internal.a libca-aws.a
+
+ca_cas_prune_packed_SOURCES = ca-cas-prune-packed.c
+ca_cas_prune_packed_LDADD = libca-cas-internal.a
 
 ca_cas_repack_SOURCES = ca-cas-repack.c
 ca_cas_repack_LDADD = libca-cas-internal.a

@@ -118,6 +118,13 @@ do
   expect_n_objects 3
 done
 
+put "data000000"
+expect_n_unpacked_objects 1
+
+./ca-cas-prune-packed "$repo"
+expect_n_packs 1
+expect_n_unpacked_objects 0
+
 for x in `seq 3 30`
 do
   put "data$x"
