@@ -119,11 +119,13 @@ do
 done
 
 put "data000000"
-expect_n_unpacked_objects 1
+put "new_object"
+expect_n_unpacked_objects 2
 
 ./ca-cas-prune-packed "$repo"
 expect_n_packs 1
-expect_n_unpacked_objects 0
+expect_n_unpacked_objects 1
+test_200 "new_object"
 
 for x in `seq 3 30`
 do
@@ -136,6 +138,8 @@ do
 done
 
 ./ca-cas-repack --full --delete "$repo"
+expect_n_packs 1
+expect_n_unpacked_objects 0
 
 for x in `seq 3 30`
 do
