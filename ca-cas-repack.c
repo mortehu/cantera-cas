@@ -207,6 +207,15 @@ write_pack (const struct ca_cas_object *hashes, size_t hash_count)
 }
 
 static int
+sha1_cmp (const void *vlhs, const void *vrhs)
+{
+  const struct ca_cas_object *lhs = vlhs;
+  const struct ca_cas_object *rhs = vrhs;
+
+  return memcmp(lhs->sha1, rhs->sha1, 20);
+}
+
+static int
 phys_offset_cmp (const void *vlhs, const void *vrhs)
 {
   const struct ca_cas_object *lhs = vlhs;
@@ -303,6 +312,28 @@ main (int argc, char **argv)
 
   if (!object_count)
     return EXIT_SUCCESS;
+
+  /* If we're doing a full repack, we need to eliminate any duplicates before
+   * allocating disk space for the output pack file.  */
+  if (do_full)
+    {
+      qsort (objects, object_count, sizeof (*objects), sha1_cmp);
+
+      size_t i = 0, o = 0;
+
+      while (i < object_count)
+        {
+          if (i > 0 && !memcmp(objects[i].sha1, objects[i - 1].sha1, 20))
+            {
+              i++;
+              continue;
+            }
+
+          objects[o++] = objects[i++];
+        }
+
+      object_count = o;
+    }
 
   if (0 != (scan_flags & CA_CAS_INCLUDE_OFFSETS))
     qsort (objects, object_count, sizeof (*objects), phys_offset_cmp);

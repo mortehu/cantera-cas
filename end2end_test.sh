@@ -44,6 +44,15 @@ EOF
   fi
 }
 
+expect_n_objects() {
+  L=`./ca-cas -c LIST "$repo" | wc -l`
+  L=`expr $L - 1`
+  if [ $1 != $L ]
+  then
+    fatal_error "Expected $1 objects, but got $L"
+  fi
+}
+
 expect_n_packs() {
   NPACKS="`find "$repo" -type f -name \*.pack | wc -l`"
   if [ $1 != $NPACKS ]
@@ -105,4 +114,6 @@ do
   test_200 "data000000"
   test_200 "data000001"
   test_200 "data000002"
+
+  expect_n_objects 3
 done
