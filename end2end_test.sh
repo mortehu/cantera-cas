@@ -61,6 +61,14 @@ expect_n_unpacked_objects() {
   fi
 }
 
+if ! ./ca-cas -c LIST "$repo" \
+  | cmp /proc/self/fd/3 3<<EOF
+200 Done
+EOF
+then
+  fatal_error "Unexpected LIST output on empty repository"
+fi
+
 test_404 "data000000"
 put "data000000"
 test_200 "data000000"

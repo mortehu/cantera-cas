@@ -55,14 +55,17 @@ CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
     {
       if (-1 == (CA_cas_pack_dirfd = open ("packs", O_DIRECTORY | O_RDONLY)))
         {
-          ca_cas_set_error ("Failed to open \"packs\" directory: %s\n", strerror (errno));
+          if (errno == ENOENT)
+            return 0;
+
+          ca_cas_set_error ("Failed to open \"packs\" directory: %s", strerror (errno));
 
           return -1;
         }
 
       if (!(CA_cas_pack_dir = fdopendir (CA_cas_pack_dirfd)))
         {
-          ca_cas_set_error ("fdopendir failed: %s\n", strerror (errno));
+          ca_cas_set_error ("fdopendir failed: %s", strerror (errno));
 
           close (CA_cas_pack_dirfd);
           CA_cas_pack_dirfd = -1;
@@ -89,7 +92,7 @@ CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
           if (!errno)
             break;
 
-          ca_cas_set_error ("readdir failed: %s\n", strerror (errno));
+          ca_cas_set_error ("readdir failed: %s", strerror (errno));
 
           goto done;
         }
