@@ -149,7 +149,10 @@ lookup (const unsigned char sha1[static 20], int retrieve)
 
   if (-1 == (dirfd = open ("packs", O_DIRECTORY | O_RDONLY)))
     {
-      printf ("500 open \"packs\" directory: %s\n", strerror (errno));
+      if (errno == ENOENT)
+        printf ("404 Entity not found\n");
+      else
+        printf ("500 open \"packs\" directory: %s\n", strerror (errno));
 
       return -1;
     }
