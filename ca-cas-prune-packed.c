@@ -110,6 +110,84 @@ maybe_prune_object(struct ca_cas_object *object, void *arg)
   return 0;
 }
 
+static void
+prune_redundant_packs (void)
+{
+  const struct ca_cas_pack_handle *pack_i, *pack_j;
+  size_t i, j, entry_index;
+  unsigned char *removed;
+
+  if (!(removed = calloc(1, pack_count)))
+    err (EXIT_FAILURE, "calloc failed");
+
+  for (i = 0; i < pack_count; ++i)
+    {
+      pack_i = &packs[i];
+
+      /* Look for packs that completely contain pack_i.  */
+      for (j = 0; j < pack_count; ++j)
+        {
+          if (i == j || removed[j])
+            continue;
+
+          fprintf(stderr, "%zu / %zu\n", i, j);
+
+          pack_j = &packs[j];
+
+          /* Only larger pack files can conceivably contain pack_i.  */
+          if (pack_j->header->entry_count < pack_i->header->entry_count)
+            continue;
+
+          for (entry_index = 0; entry_index < pack_i->header->entry_count; ++entry_index)
+            {
+              const struct pack_entry *entry = &pack_i->entries[entry_index];
+              uint64_t hash;
+
+              if (!entry->offset)
+                continue;
+
+              hash = (uint64_t) entry->sha1[0] << 56
+                | (uint64_t) entry->sha1[1] << 48
+                | (uint64_t) entry->sha1[2] << 40
+                | (uint64_t) entry->sha1[3] << 32
+                | (uint64_t) entry->sha1[4] << 24
+                | (uint64_t) entry->sha1[5] << 16
+                | (uint64_t) entry->sha1[6] << 8
+                | (uint64_t) entry->sha1[7];
+              hash %= pack_j->header->entry_count;
+
+              while (pack_j->entries[hash].offset)
+                {
+                  if (!memcmp(pack_j->entries[hash].sha1, entry->sha1, 20))
+                    break;
+
+                  if (++hash == pack_j->header->entry_count)
+                    hash = 0;
+                }
+
+              /* Object not found; pack_j does not contain pack_i.  */
+              if (!pack_j->entries[hash].offset)
+                break;
+            }
+
+          if (entry_index == pack_i->header->entry_count)
+            {
+              assert (CA_cas_pack_dirfd >= 0);
+
+              removed[i] = 1;
+
+              if (-1 == unlinkat (CA_cas_pack_dirfd, pack_i->path, 0))
+                {
+                  fprintf (stderr, "Warning: Unlinking of %s failed: %s\n",
+                           pack_i->path, strerror (errno));
+                }
+
+              break;
+            }
+        }
+    }
+}
+
 int
 main (int argc, char **argv)
 {
@@ -168,6 +246,8 @@ main (int argc, char **argv)
 
   if (-1 == scan_objects (maybe_prune_object, CA_CAS_SCAN_FILES, NULL))
     errx (EXIT_FAILURE, "scan_objects failed: %s", ca_cas_last_error ());
+
+  prune_redundant_packs ();
 
   return EXIT_SUCCESS;
 }
