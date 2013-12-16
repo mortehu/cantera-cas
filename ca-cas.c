@@ -97,9 +97,8 @@ lookup (const unsigned char sha1[static 20], int retrieve)
   ssize_t ret = 0;
   off_t offset = 0, end;
 
-  struct dirent *ent;
-  int dirfd;
-  DIR *dir = NULL;
+  ssize_t pack_count, i;
+  const struct ca_cas_pack_handle *packs;
 
   sha1_to_path (path, sha1);
 
@@ -147,86 +146,16 @@ lookup (const unsigned char sha1[static 20], int retrieve)
       return -1;
     }
 
-  if (-1 == (dirfd = open ("packs", O_DIRECTORY | O_RDONLY)))
+  if (-1 == (pack_count = CA_cas_pack_get_handles (&packs)))
     {
-      if (errno == ENOENT)
-        printf ("404 Entity not found\n");
-      else
-        printf ("500 open \"packs\" directory: %s\n", strerror (errno));
+      printf ("500 error opening pack files: %s\n", ca_cas_last_error ());
 
       return -1;
     }
 
-  if (!(dir = fdopendir (dirfd)))
+  for (i = 0; i < pack_count; ++i)
     {
-      printf ("500 fdopendir failed: %s\n", strerror (errno));
-
-      close (dirfd);
-
-      return -1;
-    }
-
-  for (;;)
-    {
-      const char *extension;
-
-      off_t pack_size;
-
-      const uint8_t *map = MAP_FAILED;
-      const struct pack_header *header;
-      const struct pack_entry *entries;
-      uint64_t j, data_start;
-
-      int ok = 0;
-
-      errno = 0;
-
-      if (!(ent = readdir (dir)))
-        {
-          if (!errno)
-            goto not_found;
-
-          printf ("500 readdir failed: %s\n", strerror (errno));
-        }
-
-      if (ent->d_name[0] == '.'
-          || !(extension = strrchr (ent->d_name, '.'))
-          || strcmp (extension, ".pack"))
-        continue;
-
-      if (-1 == (fd = openat (dirfd, ent->d_name, O_RDONLY)))
-        break;
-
-      if (-1 == (pack_size = lseek (fd, 0, SEEK_END)))
-        goto fail;
-
-      if (pack_size < sizeof (*header))
-        {
-          errno = EINVAL;
-
-          goto fail;
-        }
-
-      if (MAP_FAILED == (map = mmap (NULL, pack_size, PROT_READ, MAP_SHARED, fd, 0)))
-        {
-          close (fd);
-
-          goto fail;
-        }
-
-      close (fd);
-
-      header = (const struct pack_header *) map;
-      data_start = sizeof (*header) + header->entry_count * sizeof (*entries);
-
-      if (header->magic != PACK_MAGIC || data_start > pack_size)
-        {
-          errno = EINVAL;
-
-          goto fail;
-        }
-
-      entries = (const struct pack_entry *) (map + sizeof (*header));
+      uint64_t j;
 
       j = (uint64_t) sha1[0] << 56
         | (uint64_t) sha1[1] << 48
@@ -236,64 +165,35 @@ lookup (const unsigned char sha1[static 20], int retrieve)
         | (uint64_t) sha1[5] << 16
         | (uint64_t) sha1[6] << 8
         | (uint64_t) sha1[7];
-      j %= header->entry_count;
+      j %= packs[i].header->entry_count;
 
-      for (;;)
+      while (packs[i].entries[j].offset)
         {
-          if (!entries[j].offset)
-            goto next;
-
-          if (!memcmp (entries[j].sha1, sha1, 20))
+          if (!memcmp (packs[i].entries[j].sha1, sha1, 20))
             break;
 
-          if (++j == header->entry_count)
+          if (++j == packs[i].header->entry_count)
             j = 0;
         }
 
+      if (!packs[i].entries[j].offset)
+        continue;
+
+      if (!retrieve) return 0;
+
       /* Found match.  Now write it to stdout */
 
-      offset = entries[j].offset;
-      end = offset + entries[j].size;
-
-      if (offset < data_start || end > pack_size)
-        {
-          errno = EINVAL;
-
-          goto fail;
-        }
+      offset = packs[i].entries[j].offset;
+      end = offset + packs[i].entries[j].size;
 
       printf ("200 %lld\n", (long long) (end - offset));
 
       while (offset < end
-             && -1 != (ret = fwrite (map + offset, 1, end - offset, stdout)))
+             && -1 != (ret = fwrite (&packs[i].data[offset], 1, end - offset, stdout)))
         offset += ret;
 
-      if (-1 == ret)
-        goto fail;
-
-      ok = 1;
-
-next:
-      munmap ((void *) map, pack_size);
-
-      if (ok)
-        return 0;
-
-      continue;
-
-fail:
-      if (map != MAP_FAILED)
-        munmap ((void *) map, pack_size);
-
-      printf ("500 Lookup failed: %s\n", strerror (errno));
-
-      return -1;
+      return (-1 == ret) ? -1 : 0;
     }
-
-not_found:
-
-  if (dir)
-    closedir (dir);
 
   errno = ENOENT;
 
