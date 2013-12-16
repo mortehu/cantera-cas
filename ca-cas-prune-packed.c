@@ -40,12 +40,14 @@
 #include "ca-cas-internal.h"
 
 static int do_dry_run;
+static int skip_objects;
 static int print_version;
 static int print_help;
 
 static struct option long_options[] =
 {
     { "dry-run",        no_argument, &do_dry_run,     1 },
+    { "skip-objects",   no_argument, &skip_objects,   1 },
     { "version",        no_argument, &print_version,  1 },
     { "help",           no_argument, &print_help,     1 },
     { 0, 0, 0, 0 }
@@ -215,6 +217,7 @@ main (int argc, char **argv)
              "\n"
              "      --dry-run              don't actually remove any objects, only show\n"
              "                               those that would have been removed\n"
+             "      --skip-objects         only process pack files\n"
              "      --help     display this help and exit\n"
              "      --version  display version information and exit\n"
              "\n"
@@ -246,7 +249,8 @@ main (int argc, char **argv)
       return -1;
     }
 
-  if (-1 == scan_objects (maybe_prune_object, CA_CAS_SCAN_FILES, NULL))
+  if (!skip_objects
+      && -1 == scan_objects (maybe_prune_object, CA_CAS_SCAN_FILES, NULL))
     errx (EXIT_FAILURE, "scan_objects failed: %s", ca_cas_last_error ());
 
   prune_redundant_packs ();
