@@ -36,8 +36,8 @@ ca_cas_amazon_glacier_LDADD = $(PACKAGES_LIBS) libca-cas-internal.a libca-aws.a
 ca_cas_repack_SOURCES = ca-cas-repack.c
 ca_cas_repack_LDADD = libca-cas-internal.a
 
-TESTS = aws_test sha256_test
-check_PROGRAMS = $(TESTS)
+TESTS = aws_test sha256_test end2end_test.sh
+check_PROGRAMS = aws_test sha256_test
 
 aws_test_LDADD = $(PACKAGES_LIBS) libca-cas-internal.a libca-aws.a
 sha256_test_LDADD = libca-cas-internal.a

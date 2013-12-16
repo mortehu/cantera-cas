@@ -10,6 +10,7 @@
 *.status
 *.sw?
 *.tab
+*.trs
 *_test
 *~
 .deps
@@ -20,6 +21,7 @@
 /ca-cas
 /ca-cas-amazon-glacier
 /ca-cas-repack
+/compile
 /config.guess
 /config.h
 /config.h.in
@@ -36,6 +38,7 @@
 /m4/lt~obsolete.m4
 /missing
 /stamp-h1
+/test-driver
 Makefile
 Makefile.in
 core
