@@ -94,7 +94,7 @@ maybe_prune_object(struct ca_cas_object *object, void *arg)
       sha1_to_path (entity_path, object->sha1);
 
       if (do_dry_run)
-        printf ("unlink %s\n", entity_path);
+        printf ("object %s is contained in pack %s\n", entity_path, pack->path);
       else
         {
           if (-1 == unlink (entity_path))
@@ -129,8 +129,6 @@ prune_redundant_packs (void)
         {
           if (i == j || removed[j])
             continue;
-
-          fprintf(stderr, "%zu / %zu\n", i, j);
 
           pack_j = &packs[j];
 
@@ -176,7 +174,11 @@ prune_redundant_packs (void)
 
               removed[i] = 1;
 
-              if (-1 == unlinkat (CA_cas_pack_dirfd, pack_i->path, 0))
+              if (do_dry_run)
+                {
+                  printf ("pack %s is contained in %s\n", pack_i->path, pack_j->path);
+                }
+              else if (-1 == unlinkat (CA_cas_pack_dirfd, pack_i->path, 0))
                 {
                   fprintf (stderr, "Warning: Unlinking of %s failed: %s\n",
                            pack_i->path, strerror (errno));
