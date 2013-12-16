@@ -35,12 +35,13 @@
 static struct ca_cas_pack_handle *handles;
 static size_t handle_alloc, handle_count;
 
+int CA_cas_pack_dirfd = -1;
+static DIR *CA_cas_pack_dir;
+
 ssize_t
 CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
 {
   struct dirent *ent;
-  int dirfd;
-  DIR *dir = NULL;
 
   const uint8_t *map = MAP_FAILED;
   off_t pack_size;
@@ -50,20 +51,28 @@ CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
 
   *ret_handles = NULL;
 
-  if (-1 == (dirfd = open ("packs", O_DIRECTORY | O_RDONLY)))
+  if (CA_cas_pack_dirfd == -1)
     {
-      ca_cas_set_error ("Failed to open \"packs\" directory: %s\n", strerror (errno));
+      if (-1 == (CA_cas_pack_dirfd = open ("packs", O_DIRECTORY | O_RDONLY)))
+        {
+          ca_cas_set_error ("Failed to open \"packs\" directory: %s\n", strerror (errno));
 
-      return -1;
+          return -1;
+        }
+
+      if (!(CA_cas_pack_dir = fdopendir (CA_cas_pack_dirfd)))
+        {
+          ca_cas_set_error ("fdopendir failed: %s\n", strerror (errno));
+
+          close (CA_cas_pack_dirfd);
+          CA_cas_pack_dirfd = -1;
+
+          return -1;
+        }
     }
-
-  if (!(dir = fdopendir (dirfd)))
+  else
     {
-      ca_cas_set_error ("fdopendir failed: %s\n", strerror (errno));
-
-      close (dirfd);
-
-      return -1;
+      rewinddir (CA_cas_pack_dir);
     }
 
   errno = 0;
@@ -75,7 +84,7 @@ CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
       struct ca_cas_pack_handle handle;
       size_t i, data_start;
 
-      if (!(ent = readdir (dir)))
+      if (!(ent = readdir (CA_cas_pack_dir)))
         {
           if (!errno)
             break;
@@ -100,7 +109,7 @@ CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
       if (i != handle_count)
         continue;
 
-      if (-1 == (fd = openat (dirfd, ent->d_name, O_RDONLY)))
+      if (-1 == (fd = openat (CA_cas_pack_dirfd, ent->d_name, O_RDONLY)))
         {
           ca_cas_set_error ("Failed to open packs/%s for reading: %s",
                             ent->d_name, strerror (errno));
@@ -125,6 +134,7 @@ CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
       close (fd);
       fd = -1;
 
+      handle.data = (const char *) map;
       handle.header = (const struct pack_header *) map;
       data_start = sizeof (*handle.header) + handle.header->entry_count * sizeof (*handle.entries);
 
@@ -181,8 +191,6 @@ CA_cas_pack_get_handles (const struct ca_cas_pack_handle **ret_handles)
   result = handle_count;
 
 done:
-
-  closedir (dir);
 
   if (fd != -1)
     close (fd);

@@ -5,8 +5,8 @@
 
 struct ca_cas_object
 {
+  const struct ca_cas_pack_handle *pack;
   off_t phys_offset;
-  int pack_fd;
   unsigned char sha1[20];
 };
 
@@ -27,6 +27,7 @@ struct pack_entry
 struct ca_cas_pack_handle
 {
   char *path;
+  const char *data;
   const struct pack_header *header;
   const struct pack_entry *entries;
 };
@@ -57,3 +58,5 @@ scan_objects (int (*callback)(struct ca_cas_object *object, void *arg),
 
 ssize_t
 CA_cas_pack_get_handles (const struct ca_cas_pack_handle **handles);
+
+extern int CA_cas_pack_dirfd;

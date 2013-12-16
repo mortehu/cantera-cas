@@ -314,7 +314,7 @@ done:
 
 static int
 scan_pack_objects (int (*callback)(struct ca_cas_object *object, void *arg),
-              unsigned int flags, void *arg)
+                   unsigned int flags, void *arg)
 {
   struct ca_cas_object object;
 
@@ -337,6 +337,9 @@ scan_pack_objects (int (*callback)(struct ca_cas_object *object, void *arg),
             continue;
 
           memcpy (object.sha1, pack->entries[j].sha1, sizeof (object.sha1));
+
+          object.pack = pack;
+          object.phys_offset = j;
 
           if (-1 == callback (&object, arg))
             return -1;
