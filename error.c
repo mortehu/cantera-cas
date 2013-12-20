@@ -17,7 +17,7 @@
 */
 
 #ifdef HAVE_CONFIG_H
-#  include "config.h"
+#include "config.h"
 #endif
 
 #include <errno.h>
@@ -31,46 +31,34 @@
 static __thread char* CA_cas_last_error;
 static __thread int CA_cas_last_error_was_malloced;
 
-const char *
-ca_cas_last_error (void)
-{
-  return CA_cas_last_error ? CA_cas_last_error : strerror (errno);
+const char* ca_cas_last_error(void) {
+  return CA_cas_last_error ? CA_cas_last_error : strerror(errno);
 }
 
-void
-ca_cas_clear_error (void)
-{
-  if (CA_cas_last_error_was_malloced)
-    free (CA_cas_last_error);
+void ca_cas_clear_error(void) {
+  if (CA_cas_last_error_was_malloced) free(CA_cas_last_error);
 
   CA_cas_last_error = 0;
   CA_cas_last_error_was_malloced = 0;
 }
 
-void
-ca_cas_set_error (const char *format, ...)
-{
+void ca_cas_set_error(const char* format, ...) {
   va_list args;
   char* prev_error;
 
   prev_error = CA_cas_last_error;
 
-  va_start (args, format);
+  va_start(args, format);
 
-  if (-1 == vasprintf (&CA_cas_last_error, format, args))
-    {
-      CA_cas_last_error = strerror (errno);
+  if (-1 == vasprintf(&CA_cas_last_error, format, args)) {
+    CA_cas_last_error = strerror(errno);
 
-      if (CA_cas_last_error_was_malloced)
-        free (prev_error);
+    if (CA_cas_last_error_was_malloced) free(prev_error);
 
-      CA_cas_last_error_was_malloced = 0;
-    }
-  else
-    {
-      if (CA_cas_last_error_was_malloced)
-        free (prev_error);
+    CA_cas_last_error_was_malloced = 0;
+  } else {
+    if (CA_cas_last_error_was_malloced) free(prev_error);
 
-      CA_cas_last_error_was_malloced = 1;
-    }
+    CA_cas_last_error_was_malloced = 1;
+  }
 }
