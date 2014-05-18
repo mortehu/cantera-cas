@@ -60,6 +60,7 @@ static void write_pack(const struct ca_cas_object *hashes, size_t hash_count) {
 
   struct pack_header *header;
   struct pack_entry *entries;
+  size_t header_size;
   off_t size;
   int pack_fd;
 
@@ -75,17 +76,19 @@ static void write_pack(const struct ca_cas_object *hashes, size_t hash_count) {
   if (-1 == (pack_fd = mkstemp(tmp_path)))
     err(EXIT_FAILURE, "%s: mkstemp failed", tmp_path);
 
-  size = sizeof(*header) + hash_count * 2 * sizeof(*entries);
+  header_size = sizeof(*header) + hash_count * 2 * sizeof(*entries);
 
-  if (-1 == ftruncate(pack_fd, size))
+  if (-1 == ftruncate(pack_fd, header_size))
     err(EXIT_FAILURE, "%s: ftruncate failed", tmp_path);
 
-  if (-1 == lseek(pack_fd, size, SEEK_SET))
+  if (-1 == lseek(pack_fd, header_size, SEEK_SET))
     err(EXIT_FAILURE, "%s: seek failed", tmp_path);
 
   if (MAP_FAILED ==
-      (header = mmap(NULL, (size_t)size, PROT_WRITE, MAP_SHARED, pack_fd, 0)))
+      (header = mmap(NULL, header_size, PROT_WRITE, MAP_SHARED, pack_fd, 0)))
     err(EXIT_FAILURE, "mmap failed");
+
+  size = header_size;
 
   header->magic = PACK_MAGIC;
   header->entry_count = hash_count * 2;
@@ -165,8 +168,8 @@ static void write_pack(const struct ca_cas_object *hashes, size_t hash_count) {
     size += entity_size;
   }
 
-  if (-1 == msync(header, (size_t)size, MS_SYNC))
-    err(EXIT_FAILURE, "%s: msync failed", tmp_path);
+  if (-1 == msync(header, header_size, MS_SYNC))
+    err(EXIT_FAILURE, "%s: msync of %zu bytes failed", tmp_path, header_size);
 
   if (-1 == fsync(pack_fd)) err(EXIT_FAILURE, "%s: fsync failed", tmp_path);
 
