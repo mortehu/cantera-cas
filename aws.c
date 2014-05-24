@@ -20,7 +20,7 @@ static const char *empty_sha256_hex =
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 static int cmpstringp(const void *p1, const void *p2) {
-  return strcmp(*(char * const *)p1, *(char * const *)p2);
+  return strcmp(*(char *const *)p1, *(char *const *)p2);
 }
 
 static int add_header(struct curl_slist **headers, const char *header) {
@@ -65,7 +65,10 @@ int aws_sign_request(char signature[static AWS_SIGNATURE_SIZE],
     char *o, *i = header->data;
     int in_quotes = 0;
 
-    while (*i && *i != ':') *i++ = tolower(*i);
+    while (*i && *i != ':') {
+      *i = tolower(*i);
+      ++i;
+    }
 
     if (!*i) {
       assert(!"Header must contain ':'");
