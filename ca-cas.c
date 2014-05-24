@@ -418,12 +418,13 @@ int main(int argc, char **argv) {
     if (-1 == chdir(argv[optind]))
       err(EXIT_FAILURE, "Unable to chdir to '%s': %s", argv[optind],
           strerror(errno));
-  } else if (optind + 1 < argc)
+  } else if (optind + 1 < argc) {
     errx(EX_USAGE, "Usage: %s [OPTION]... [PATH]", argv[0]);
+  }
 
-  if (command)
+  if (command) {
     do_command(command);
-  else {
+  } else {
     line[sizeof(line) - 1] = 0;
 
     while (NULL != fgets(line, sizeof(line), stdin)) {
