@@ -76,7 +76,8 @@ static int parse_sha1_hex(unsigned char sha1[static 20], const char *string) {
   return 0;
 }
 
-static int lookup(const unsigned char sha1[static 20], int retrieve) {
+static int lookup(FILE *stream, const unsigned char sha1[static 20],
+                  int retrieve) {
   char path[43];
 
   int fd;
@@ -99,18 +100,18 @@ static int lookup(const unsigned char sha1[static 20], int retrieve) {
     if (-1 != (fd = open(path, O_RDONLY))) {
       if (-1 == (end = lseek(fd, 0, SEEK_END)) ||
           -1 == lseek(fd, 0, SEEK_SET)) {
-        printf("500 lseek failed: %s\n", strerror(errno));
+        fprintf(stream, "500 lseek failed: %s\n", strerror(errno));
 
         close(fd);
 
         return -1;
       }
 
-      printf("200 %lld\n", (long long)end);
-      fflush(stdout);
+      fprintf(stream, "200 %lld\n", (long long)end);
+      fflush(stream);
 
       while (offset < end &&
-             -1 != (ret = sendfile(STDOUT_FILENO, fd, NULL, end - offset)))
+             -1 != (ret = sendfile(fileno(stream), fd, NULL, end - offset)))
         offset += ret;
 
       close(fd);
@@ -120,13 +121,13 @@ static int lookup(const unsigned char sha1[static 20], int retrieve) {
   }
 
   if (errno != ENOENT && errno != ENOTDIR) {
-    printf("500 open failed: %s\n", strerror(errno));
+    fprintf(stream, "500 open failed: %s\n", strerror(errno));
 
     return -1;
   }
 
   if (-1 == (pack_count = CA_cas_pack_get_handles(&packs))) {
-    printf("500 error opening pack files: %s\n", ca_cas_last_error());
+    fprintf(stream, "500 error opening pack files: %s\n", ca_cas_last_error());
 
     return -1;
   }
@@ -155,10 +156,11 @@ static int lookup(const unsigned char sha1[static 20], int retrieve) {
     offset = packs[i].entries[j].offset;
     end = offset + packs[i].entries[j].size;
 
-    printf("200 %lld\n", (long long)(end - offset));
+    fprintf(stream, "200 %lld\n", (long long)(end - offset));
 
-    while (offset < end && -1 != (ret = fwrite(&packs[i].data[offset], 1,
-                                               end - offset, stdout)))
+    while (offset < end &&
+           -1 !=
+               (ret = fwrite(&packs[i].data[offset], 1, end - offset, stdout)))
       offset += ret;
 
     return (-1 == ret) ? -1 : 0;
@@ -166,7 +168,7 @@ static int lookup(const unsigned char sha1[static 20], int retrieve) {
 
   errno = ENOENT;
 
-  printf("404 Entity not found\n");
+  fprintf(stream, "404 Entity not found\n");
 
   return -1;
 }
@@ -199,7 +201,7 @@ static int pmkdir(unsigned char dir_0, unsigned char dir_1) {
   return 0;
 }
 
-static void store(long long size) {
+static void store(FILE *stream, long long size) {
   char buffer[65536];
   char tmp_path[11], output_path[43];
   unsigned char sha1_digest[20];
@@ -214,7 +216,7 @@ static void store(long long size) {
   sprintf(tmp_path, "tmp.XXXXXX");
 
   if (-1 == (fd = mkstemp(tmp_path))) {
-    printf("500 mkstemp failed: %s\n", strerror(errno));
+    fprintf(stream, "500 mkstemp failed: %s\n", strerror(errno));
 
     goto done;
   }
@@ -237,11 +239,12 @@ static void store(long long size) {
       if (ret == -1) {
         if (errno == EINTR) continue;
 
-        printf("500 read failed: %s\n", strerror(errno));
-      } else if (size == -1)
+        fprintf(stream, "500 read failed: %s\n", strerror(errno));
+      } else if (size == -1) {
         break;
-      else
-        printf("500 short read\n");
+      } else {
+        fprintf(stream, "500 short read\n");
+      }
 
       goto done;
     }
@@ -260,9 +263,10 @@ static void store(long long size) {
         if (ret == -1) {
           if (errno == EINTR) continue;
 
-          printf("500 write failed: %s\n", strerror(errno));
-        } else
-          printf("500 short write\n");
+          fprintf(stream, "500 write failed: %s\n", strerror(errno));
+        } else {
+          fprintf(stream, "500 short write\n");
+        }
 
         goto done;
       }
@@ -277,19 +281,19 @@ static void store(long long size) {
 
   if (-1 == access(output_path, F_OK)) {
     if (-1 == pmkdir(sha1_digest[0], sha1_digest[1])) {
-      printf("500 mkdir failed: %s\n", strerror(errno));
+      fprintf(stream, "500 mkdir failed: %s\n", strerror(errno));
 
       goto done;
     }
 
     if (do_fsync && -1 == fsync(fd)) {
-      printf("500 fsync failed: %s\n", strerror(errno));
+      fprintf(stream, "500 fsync failed: %s\n", strerror(errno));
 
       goto done;
     }
 
     if (-1 == rename(tmp_path, output_path)) {
-      printf("500 rename failed: %s\n", strerror(errno));
+      fprintf(stream, "500 rename failed: %s\n", strerror(errno));
 
       goto done;
     }
@@ -299,7 +303,8 @@ static void store(long long size) {
     fd = -1;
   }
 
-  printf("201 %.2s%.2s%s\n", output_path, output_path + 3, output_path + 6);
+  fprintf(stream, "201 %.2s%.2s%s\n", output_path, output_path + 3,
+          output_path + 6);
 
 done:
 
@@ -312,63 +317,67 @@ done:
 }
 
 static int print_object(struct ca_cas_object *object, void *arg) {
+  FILE *stream = arg;
   char hex[41];
 
   ca_cas_sha1_to_hex(object->sha1, hex);
 
-  printf("%s\n", hex);
+  fprintf(stream, "%s\n", hex);
 
   return 0;
 }
 
-static void list(void) {
-  if (-1 ==
-      scan_objects(print_object, CA_CAS_SCAN_FILES | CA_CAS_SCAN_PACKS, NULL)) {
-    printf("500 %s\n", ca_cas_last_error());
+static void list(FILE *stream) {
+  if (-1 == scan_objects(print_object, CA_CAS_SCAN_FILES | CA_CAS_SCAN_PACKS,
+                         stream)) {
+    fprintf(stream, "500 %s\n", ca_cas_last_error());
 
     return;
   }
 
-  printf("200 Done\n");
+  fprintf(stream, "200 Done\n");
 }
 
-static void do_command(const char *command) {
+static void do_command(FILE *stream, const char *command) {
   unsigned char sha1[20];
   long long size;
   char *ch;
 
-  if (!strcmp(command, "PUT"))
-    store(-1);
-  else if (!strncmp(command, "PUT ", strlen("PUT "))) {
+  if (!strcmp(command, "PUT")) {
+    store(stream, -1);
+  } else if (!strncmp(command, "PUT ", strlen("PUT "))) {
     size = strtoll(command + strlen("PUT "), &ch, 10);
 
     if (size < 0 || *ch != 0) {
-      printf("400 Invalid PUT request.  Expected PUT [LENGTH]\n");
+      fprintf(stream, "400 Invalid PUT request.  Expected PUT [LENGTH]\n");
 
       return;
     }
 
-    store(size);
+    store(stream, size);
   } else if (!strncmp(command, "GET ", strlen("GET "))) {
     if (-1 == parse_sha1_hex(sha1, command + strlen("GET "))) {
-      printf("400 Invalid GET request.  Expected GET <HEXADECIMAL SHA-1>\n");
+      fprintf(stream,
+              "400 Invalid GET request.  Expected GET <HEXADECIMAL SHA-1>\n");
 
       return;
     }
 
-    lookup(sha1, 1);
+    lookup(stream, sha1, 1);
   } else if (!strncmp(command, "HEAD ", strlen("HEAD "))) {
     if (-1 == parse_sha1_hex(sha1, command + strlen("HEAD "))) {
-      printf("400 Invalid HEAD request.  Expected HEAD <HEXADECIMAL SHA-1>\n");
+      fprintf(stream,
+              "400 Invalid HEAD request.  Expected HEAD <HEXADECIMAL SHA-1>\n");
 
       return;
     }
 
-    if (0 == lookup(sha1, 0)) printf("200 Entity exists\n");
-  } else if (!strcmp(command, "LIST"))
-    list();
-  else
-    printf("405 Unknown command\n");
+    if (0 == lookup(stream, sha1, 0)) fprintf(stream, "200 Entity exists\n");
+  } else if (!strcmp(command, "LIST")) {
+    list(stream);
+  } else {
+    fprintf(stream, "405 Unknown command\n");
+  }
 }
 
 int main(int argc, char **argv) {
@@ -423,7 +432,8 @@ int main(int argc, char **argv) {
   }
 
   if (command) {
-    do_command(command);
+    do_command(stdout, command);
+    fflush(stdout);
   } else {
     line[sizeof(line) - 1] = 0;
 
@@ -442,8 +452,7 @@ int main(int argc, char **argv) {
 
       line[line_length] = 0;
 
-      do_command(line);
-
+      do_command(stdout, line);
       fflush(stdout);
     }
   }
