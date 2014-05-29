@@ -111,6 +111,48 @@ static int check_object(struct ca_cas_object *object, void *arg) {
   return 0;
 }
 
+/* Compares to pack_entry objects by offset.  */
+static int entrycmp(const void *vlhs, const void *vrhs) {
+  struct pack_entry *const *lhs = vlhs;
+  struct pack_entry *const *rhs = vrhs;
+
+  if ((*lhs)->offset < (*rhs)->offset)
+    return -1;
+  else
+    return 1;
+}
+
+/* Sorts a list of pack_entry objects by their offset, then checks their SHA-1
+   digests.  */
+static void flush_entries(const struct ca_cas_pack_handle *pack,
+                          const struct pack_entry **entries, size_t count) {
+  size_t i;
+
+  qsort(entries, count, sizeof(entries), entrycmp);
+
+  for (i = 0; i < count; ++i) {
+    const struct pack_entry *entry = entries[i];
+    struct sha1_context sha1;
+    unsigned char got_sha1[20];
+
+    sha1_init(&sha1);
+    sha1_add(&sha1, &pack->data[entry->offset], entry->size);
+    sha1_finish(&sha1, got_sha1);
+
+    if (memcmp(got_sha1, entry->sha1, 20)) {
+      char expected_hex[41], got_hex[41];
+
+      ca_cas_sha1_to_hex(entry->sha1, expected_hex);
+      ca_cas_sha1_to_hex(got_sha1, got_hex);
+
+      printf("%s: unexpected SHA-1 sum %s, expected %s\n", pack->path, got_hex,
+             expected_hex);
+
+      broken = 1;
+    }
+  }
+}
+
 static void check_packs(void) {
   ssize_t pack_count;
   const struct ca_cas_pack_handle *packs;
@@ -163,38 +205,34 @@ static void check_packs(void) {
   }
 
   /* In the second pass, we actually verify the SHA-1 digests.  */
+  if (!skip_sha1) {
+    static const size_t BUFFER_SIZE = 1024 * 1024;
+    const struct pack_entry **buffer;
+    buffer = calloc(sizeof(*buffer), BUFFER_SIZE);
 
-  if (skip_sha1) return;
+    for (i = 0; i < pack_count; ++i) {
+      size_t buffer_fill = 0;
 
-  for (i = 0; i < pack_count; ++i) {
-    pack = &packs[i];
+      pack = &packs[i];
 
-    for (entry_index = 0; entry_index < pack->header->entry_count;
-         ++entry_index) {
-      const struct pack_entry *entry = &pack->entries[entry_index];
-      struct sha1_context sha1;
-      unsigned char got_sha1[20];
+      for (entry_index = 0; entry_index < pack->header->entry_count;
+           ++entry_index) {
+        const struct pack_entry *entry = &pack->entries[entry_index];
 
-      if (!entry->offset) continue;
+        if (!entry->offset) continue;
 
-      sha1_init(&sha1);
+        buffer[buffer_fill++] = entry;
 
-      sha1_add(&sha1, &pack->data[entry->offset], entry->size);
-
-      sha1_finish(&sha1, got_sha1);
-
-      if (memcmp(got_sha1, entry->sha1, 20)) {
-        char expected_hex[41], got_hex[41];
-
-        ca_cas_sha1_to_hex(entry->sha1, expected_hex);
-        ca_cas_sha1_to_hex(got_sha1, got_hex);
-
-        printf("%s item %zu: unexpected SHA-1 sum %s, expected %s\n",
-               pack->path, entry_index, got_hex, expected_hex);
-
-        broken = 1;
+        if (buffer_fill == BUFFER_SIZE) {
+          flush_entries(pack, buffer, buffer_fill);
+          buffer_fill = 0;
+        }
       }
+
+      flush_entries(pack, buffer, buffer_fill);
     }
+
+    free(buffer);
   }
 }
 
