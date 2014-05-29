@@ -98,7 +98,6 @@ static int check_object(struct ca_cas_object *object, void *arg) {
 
   if (memcmp(got_sha1, object->sha1, 20)) {
     char expected_hex[41], got_hex[41];
-    ;
 
     ca_cas_sha1_to_hex(object->sha1, expected_hex);
     ca_cas_sha1_to_hex(got_sha1, got_hex);
@@ -186,7 +185,6 @@ static void check_packs(void) {
 
       if (memcmp(got_sha1, entry->sha1, 20)) {
         char expected_hex[41], got_hex[41];
-        ;
 
         ca_cas_sha1_to_hex(entry->sha1, expected_hex);
         ca_cas_sha1_to_hex(got_sha1, got_hex);
