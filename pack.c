@@ -41,7 +41,7 @@ static DIR *CA_cas_pack_dir;
 ssize_t CA_cas_pack_get_handles(const struct ca_cas_pack_handle **ret_handles) {
   struct dirent *ent;
 
-  const uint8_t *map = MAP_FAILED;
+  const char *map = MAP_FAILED;
   off_t pack_size = 0;
   int fd = -1;
 
