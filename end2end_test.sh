@@ -13,7 +13,6 @@ fatal_error() {
 }
 
 put() {
-  DIGEST=`echo "$1" | sha1sum | cut -d' ' -f1`
   if ! echo "$1" | ./ca-cas --no-fsync -c PUT "$repo" >/dev/null
   then
     fatal_error "Inserting $1 failed"
