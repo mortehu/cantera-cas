@@ -10,7 +10,7 @@ bin_PROGRAMS = \
 
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I.
-AM_CFLAGS = -Wall -Werror -g -fPIC $(PACKAGES_CFLAGS)
+AM_CFLAGS = -Wall -g -fPIC $(PACKAGES_CFLAGS)
 
 libca_cas_internal_a_SOURCES = \
   binary-to-hex.c \
