@@ -61,7 +61,7 @@ expect_n_packs() {
 }
 
 expect_n_unpacked_objects() {
-  NOBJECTS="`find "$repo" -type f -not -name \*.pack | wc -l`"
+  NOBJECTS="`find "$repo" -mindepth 2 -type f -not -name \*.pack | wc -l`"
 
   if [ $1 != $NOBJECTS ]
   then
