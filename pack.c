@@ -38,6 +38,32 @@ static size_t handle_alloc, handle_count;
 int CA_cas_pack_dirfd = -1;
 static DIR *CA_cas_pack_dir;
 
+int CA_cas_pack_open_dirfd(void) {
+  errno = 0;
+
+  if (CA_cas_pack_dirfd != -1) return 0;
+
+  if (-1 == (CA_cas_pack_dirfd = open("packs", O_DIRECTORY | O_RDONLY))) {
+    if (errno == ENOENT) return -1;
+
+    ca_cas_set_error("open(\"packs\", O_DIRECTORY | O_RDONLY) failed: %s",
+                     strerror(errno));
+
+    return -1;
+  }
+
+  if (!(CA_cas_pack_dir = fdopendir(CA_cas_pack_dirfd))) {
+    ca_cas_set_error("fdopendir failed: %s", strerror(errno));
+
+    close(CA_cas_pack_dirfd);
+    CA_cas_pack_dirfd = -1;
+
+    return -1;
+  }
+
+  return 0;
+}
+
 ssize_t CA_cas_pack_get_handles(const struct ca_cas_pack_handle **ret_handles) {
   struct dirent *ent;
 
@@ -50,20 +76,8 @@ ssize_t CA_cas_pack_get_handles(const struct ca_cas_pack_handle **ret_handles) {
   *ret_handles = NULL;
 
   if (CA_cas_pack_dirfd == -1) {
-    if (-1 == (CA_cas_pack_dirfd = open("packs", O_DIRECTORY | O_RDONLY))) {
+    if (-1 == CA_cas_pack_open_dirfd()) {
       if (errno == ENOENT) return 0;
-
-      ca_cas_set_error("Failed to open \"packs\" directory: %s",
-                       strerror(errno));
-
-      return -1;
-    }
-
-    if (!(CA_cas_pack_dir = fdopendir(CA_cas_pack_dirfd))) {
-      ca_cas_set_error("fdopendir failed: %s", strerror(errno));
-
-      close(CA_cas_pack_dirfd);
-      CA_cas_pack_dirfd = -1;
 
       return -1;
     }

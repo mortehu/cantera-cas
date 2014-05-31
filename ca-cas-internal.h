@@ -48,6 +48,8 @@ int get_objects(struct ca_cas_object **ret_objects, size_t *ret_object_count,
 int scan_objects(int (*callback)(struct ca_cas_object *object, void *arg),
                  unsigned int flags, void *arg);
 
+int CA_cas_pack_open_dirfd(void);
+
 ssize_t CA_cas_pack_get_handles(const struct ca_cas_pack_handle **handles);
 
 extern int CA_cas_pack_dirfd;

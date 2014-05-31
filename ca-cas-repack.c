@@ -47,7 +47,7 @@ static int skip_phys_sort;
 static int print_version;
 static int print_help;
 
-static struct option long_options[] = {
+static struct option LONG_OPTIONS[] = {
     {"full", no_argument, &do_full, 1},
     {"delete", no_argument, &do_delete, 1},
     {"skip-phys-sort", no_argument, &skip_phys_sort, 1},
@@ -55,8 +55,17 @@ static struct option long_options[] = {
     {"help", no_argument, &print_help, 1},
     {0, 0, 0, 0}};
 
-static void write_pack(const struct ca_cas_object *hashes, size_t hash_count) {
+static const char PACK_PATH_SUFFIX[] = ".pack";
+#define PACK_PATH_LENGTH (sizeof(PACK_PATH_SUFFIX) - 1 + 40 + 1)
+
+static void write_pack(const struct ca_cas_object *hashes, size_t hash_count,
+                       char *output_path) {
   char tmp_path[32];
+
+  /* The pack file name is generated from the parity of all the contained
+     hashes.  This ensures pack files with identical contents get the same
+     name, no matter what order the files were added in.  */
+  unsigned char parity[20];
 
   struct pack_header *header;
   struct pack_entry *entries;
@@ -66,8 +75,7 @@ static void write_pack(const struct ca_cas_object *hashes, size_t hash_count) {
 
   size_t i;
 
-  if (-1 == mkdir("packs", 0777) && errno != EEXIST)
-    err(EXIT_FAILURE, "mkdir failed");
+  memset(parity, 0, sizeof(parity));
 
   sprintf(tmp_path, "packs/pack.tmp.XXXXXX");
 
@@ -103,6 +111,8 @@ static void write_pack(const struct ca_cas_object *hashes, size_t hash_count) {
     off_t offset = 0, entity_size;
 
     sha1 = hashes[i].sha1;
+
+    for (j = 0; j < 20; ++j) parity[j] ^= sha1[j];
 
     j = (uint64_t)sha1[0] << 56 | (uint64_t)sha1[1] << 48 |
         (uint64_t)sha1[2] << 40 | (uint64_t)sha1[3] << 32 |
@@ -175,31 +185,25 @@ static void write_pack(const struct ca_cas_object *hashes, size_t hash_count) {
 
   close(pack_fd);
 
-  for (i = 0;; ++i) {
-    char path[64];
+  binary_to_hex(output_path, parity, 20);
+  strcpy(&output_path[40], PACK_PATH_SUFFIX);
 
-    sprintf(path, "packs/%08zx.pack", i);
+  assert(CA_cas_pack_dirfd >= 0);
 
-    if (-1 == link(tmp_path, path)) {
-      if (errno == EEXIST) continue;
-
-      err(EXIT_FAILURE, "%s: link failed", path);
-    }
-
-    if (-1 == unlink(tmp_path))
-      err(EXIT_FAILURE, "%s: failed to unlink", tmp_path);
-
-    break;
-  }
+  if (-1 == renameat(AT_FDCWD, tmp_path, CA_cas_pack_dirfd, output_path))
+    err(EXIT_FAILURE, "Failed to rename '%s' to '%s'", tmp_path, output_path);
 }
 
-static int sha1_cmp(const void *vlhs, const void *vrhs) {
+/* Compares two ca_cas_objects by their SHA-1 digests.  */
+static int object_sha1_cmp(const void *vlhs, const void *vrhs) {
   const struct ca_cas_object *lhs = vlhs;
   const struct ca_cas_object *rhs = vrhs;
 
   return memcmp(lhs->sha1, rhs->sha1, 20);
 }
 
+/* Compares two ca_cas_objects by their physical address.  Used to improve read
+   performance on mechanically moving storage media.  */
 static int phys_offset_cmp(const void *vlhs, const void *vrhs) {
   const struct ca_cas_object *lhs = vlhs;
   const struct ca_cas_object *rhs = vrhs;
@@ -213,6 +217,7 @@ static int phys_offset_cmp(const void *vlhs, const void *vrhs) {
   return 0;
 }
 
+/* Compares two ca_cas_objects by their pack file handle.  */
 static int pack_cmp(const void *vlhs, const void *vrhs) {
   const struct ca_cas_object *lhs = vlhs;
   const struct ca_cas_object *rhs = vrhs;
@@ -222,14 +227,36 @@ static int pack_cmp(const void *vlhs, const void *vrhs) {
   return 0;
 }
 
+/* Removes objects that occur twice in the given array, returning the number of
+   remaining objects.  */
+static size_t prune_duplicate_objects(struct ca_cas_object *objects,
+                                      size_t object_count) {
+  size_t i = 0, o = 0;
+
+  qsort(objects, object_count, sizeof(*objects), object_sha1_cmp);
+
+  while (i < object_count) {
+    if (i > 0 && !memcmp(objects[i].sha1, objects[i - 1].sha1, 20)) {
+      i++;
+      continue;
+    }
+
+    objects[o++] = objects[i++];
+  }
+
+  return o;
+}
+
 int main(int argc, char **argv) {
   struct ca_cas_object *objects = NULL;
   size_t object_count = 0;
 
+  char new_pack_path[PACK_PATH_LENGTH];
+
   unsigned int scan_flags = CA_CAS_SCAN_FILES;
   int i;
 
-  while ((i = getopt_long(argc, argv, "", long_options, 0)) != -1) {
+  while ((i = getopt_long(argc, argv, "", LONG_OPTIONS, 0)) != -1) {
     switch (i) {
       case 0:
 
@@ -276,6 +303,12 @@ int main(int argc, char **argv) {
   } else if (optind + 1 < argc)
     errx(EX_USAGE, "Usage: %s [OPTION]... [PATH]", argv[0]);
 
+  if (-1 == mkdir("packs", 0777) && errno != EEXIST)
+    err(EXIT_FAILURE, "mkdir failed");
+
+  if (-1 == CA_cas_pack_open_dirfd())
+    err(EXIT_FAILURE, "Failed to open pack directory: %s", ca_cas_last_error());
+
   if (!skip_phys_sort && 0 != path_is_rotational("."))
     scan_flags |= CA_CAS_INCLUDE_OFFSETS;
 
@@ -288,27 +321,12 @@ int main(int argc, char **argv) {
 
   /* If we're doing a full repack, we need to eliminate any duplicates before
    * allocating disk space for the output pack file.  */
-  if (do_full) {
-    qsort(objects, object_count, sizeof(*objects), sha1_cmp);
-
-    size_t i = 0, o = 0;
-
-    while (i < object_count) {
-      if (i > 0 && !memcmp(objects[i].sha1, objects[i - 1].sha1, 20)) {
-        i++;
-        continue;
-      }
-
-      objects[o++] = objects[i++];
-    }
-
-    object_count = o;
-  }
+  if (do_full) object_count = prune_duplicate_objects(objects, object_count);
 
   if (0 != (scan_flags & CA_CAS_INCLUDE_OFFSETS))
     qsort(objects, object_count, sizeof(*objects), phys_offset_cmp);
 
-  write_pack(objects, object_count);
+  write_pack(objects, object_count, new_pack_path);
 
   /* Now that the entities are in a synced .pack file, they can be removed.
    * Remove previously unpacked objects first.  */
@@ -331,6 +349,8 @@ int main(int argc, char **argv) {
     for (i = 0; i < object_count; ++i) {
       if (!objects[i].pack || (i && objects[i].pack == objects[i - 1].pack))
         continue;
+
+      if (!strcmp(objects[i].pack->path, new_pack_path)) continue;
 
       assert(CA_cas_pack_dirfd >= 0);
 

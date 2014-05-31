@@ -311,8 +311,8 @@ done:
   if (size == -1) close(STDIN_FILENO);
 
   if (fd != -1) {
-    unlink(tmp_path);
-    close(fd);
+    (void)unlink(tmp_path);
+    (void)close(fd);
   }
 }
 
