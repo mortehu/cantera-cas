@@ -425,8 +425,7 @@ int main(int argc, char **argv) {
 
   if (optind + 1 == argc) {
     if (-1 == chdir(argv[optind]))
-      err(EXIT_FAILURE, "Unable to chdir to '%s': %s", argv[optind],
-          strerror(errno));
+      err(EXIT_FAILURE, "Unable to chdir to '%s'", argv[optind]);
   } else if (optind + 1 < argc) {
     errx(EX_USAGE, "Usage: %s [OPTION]... [PATH]", argv[0]);
   }
