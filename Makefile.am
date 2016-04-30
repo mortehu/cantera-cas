@@ -1,51 +1,164 @@
-noinst_LIBRARIES = libca-cas-internal.a libca-aws.a
-lib_LIBRARIES = libca-cas.a
-include_HEADERS = ca-cas.h
+lib_LTLIBRARIES = \
+  libca-cas.la
+
 bin_PROGRAMS = \
   ca-cas \
-  ca-cas-amazon-glacier \
+  ca-cas-balancerd \
   ca-cas-fsck \
-  ca-cas-prune-packed \
-  ca-cas-repack
+  ca-casd
+
+noinst_LIBRARIES =
+
+noinst_LTLIBRARIES = \
+  src/libbalancer.la \
+  src/libcolumnfile.la \
+  src/libutil.la \
+  src/libsharding.la \
+  src/libstorage.la \
+  src/libproto.la
+
+check_PROGRAMS = \
+  src/balancer_test \
+  src/storage-server_test
+
+ca_cas_includedir = $(includedir)/ca-cas
+ca_cas_include_HEADERS = \
+  src/cas-columnfile.h \
+  src/client.h \
+  src/key.h
+
+ca_cas_proto_includedir = $(includedir)/ca-cas/proto
+ca_cas_proto_include_HEADERS = \
+  generated/src/proto/ca-cas.capnp.h \
+  generated/src/proto/columnfile.capnp.h \
+  generated/src/proto/util.capnp.h
+
+TESTS = $(check_PROGRAMS) src/end2end_test.sh
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = -I.
-AM_CFLAGS = -Wall -g -fPIC $(PACKAGES_CFLAGS)
+AM_CPPFLAGS = -Isrc -Igenerated/src
+AM_LDFLAGS = -lpthread
 
-libca_cas_internal_a_SOURCES = \
-  binary-to-hex.c \
-  ca-cas-internal.h \
-  detect-rotational.c \
-  error.c \
-  libca-cas.c \
-  pack.c \
-  scan-objects.c \
-  sha1-to-path.c \
-  sha1.c \
-  sha1.h \
-  sha256.c \
-  sha256.h
-libca_cas_a_SOURCES = libca-cas.c error.c
+include third_party/gtest/Makefile.am
 
-libca_aws_a_SOURCES = aws.c sha256.c binary-to-hex.c
+libca_cas_la_SOURCES = \
+  src/client.cc
+libca_cas_la_LIBADD = \
+  src/libutil.la \
+  src/libproto.la \
+  $(CAPNP_RPC_LIBS) \
+  $(CRYPTO_LIBS)
 
-ca_cas_SOURCES = ca-cas.c
-ca_cas_LDADD = libca-cas-internal.a
+src_libbalancer_la_SOURCES = \
+  src/balancer.cc
+src_libbalancer_la_LIBADD = \
+  src/libsharding.la \
+  libca-cas.la
 
-ca_cas_amazon_glacier_SOURCES = ca-cas-amazon-glacier.c
-ca_cas_amazon_glacier_LDADD = $(PACKAGES_LIBS) libca-cas-internal.a libca-aws.a
+src_libstorage_la_SOURCES = \
+  src/async-io.cc \
+  src/async-io.h \
+  src/storage-server.cc
+src_libstorage_la_LIBADD = \
+  $(CAPNP_RPC_LIBS) \
+  $(CRYPTO_LIBS) \
+  -lrt
 
-ca_cas_fsck_SOURCES = ca-cas-fsck.c
-ca_cas_fsck_LDADD = libca-cas-internal.a
+src_libsharding_la_SOURCES = \
+  src/sharding.cc \
+  src/sharding.h
+src_libsharding_la_LIBADD = \
+  $(YAML_LIBS)
 
-ca_cas_prune_packed_SOURCES = ca-cas-prune-packed.c
-ca_cas_prune_packed_LDADD = libca-cas-internal.a
+src_libutil_la_SOURCES = \
+  src/io.cc \
+  src/io.h \
+  src/key.cc \
+  src/key.h \
+  src/progress.cc \
+  src/progress.h \
+  src/util.cc \
+  src/util.h
+src_libutil_la_LIBADD = \
+  $(CRYPTO_LIBS)
 
-ca_cas_repack_SOURCES = ca-cas-repack.c
-ca_cas_repack_LDADD = libca-cas-internal.a
+src_libcolumnfile_la_SOURCES = \
+  src/cas-columnfile.cc
 
-TESTS = aws_test sha256_test end2end_test.sh
-check_PROGRAMS = aws_test sha256_test
+src_libproto_la_SOURCES = \
+  generated/src/proto/async-io.capnp.c++ \
+  generated/src/proto/async-io.capnp.h \
+  generated/src/proto/columnfile.capnp.c++ \
+  generated/src/proto/columnfile.capnp.h \
+  generated/src/proto/ca-cas.capnp.c++ \
+  generated/src/proto/ca-cas.capnp.h \
+  generated/src/proto/util.capnp.c++ \
+  generated/src/proto/util.capnp.h
 
-aws_test_LDADD = $(PACKAGES_LIBS) libca-cas-internal.a libca-aws.a
-sha256_test_LDADD = libca-cas-internal.a
+ca_cas_fsck_SOURCES = \
+  src/ca-cas-fsck.cc
+ca_cas_fsck_LDADD = \
+  src/libutil.la \
+  $(CAPNP_LIBS) \
+  $(CRYPTO_LIBS)
+
+ca_cas_SOURCES = \
+  src/ca-cas.cc
+ca_cas_LDADD = \
+  libca-cas.la \
+  src/libutil.la \
+  src/libsharding.la \
+  src/libproto.la \
+  $(CAPNP_RPC_LIBS) \
+  $(CRYPTO_LIBS) \
+  $(LIBCOLUMNFILE_LIBS) \
+  $(YAML_LIBS)
+
+ca_cas_balancerd_SOURCES = \
+  src/ca-cas-balancerd.cc
+ca_cas_balancerd_LDADD = \
+  src/libbalancer.la \
+  src/libutil.la \
+  src/libproto.la \
+  $(CAPNP_RPC_LIBS) \
+  $(YAML_LIBS)
+
+ca_casd_SOURCES = \
+  src/ca-casd.cc
+ca_casd_LDADD = \
+  src/libstorage.la \
+  src/libutil.la \
+  src/libproto.la \
+  $(CAPNP_RPC_LIBS) \
+  $(YAML_LIBS)
+
+src_balancer_test_SOURCES = \
+  src/balancer_test.cc
+src_balancer_test_LDADD = \
+  src/libbalancer.la \
+  src/libstorage.la \
+  src/libutil.la \
+  src/libproto.la \
+  third_party/gtest/libgtest.a \
+  $(CAPNP_RPC_LIBS) \
+  $(YAML_LIBS)
+
+src_storage_server_test_SOURCES = \
+  src/storage-server_test.cc
+src_storage_server_test_LDADD = \
+  libca-cas.la \
+  src/libstorage.la \
+  src/libutil.la \
+  src/libproto.la \
+  third_party/gtest/libgtest.a \
+  $(CAPNP_RPC_LIBS) \
+  $(YAML_LIBS)
+
+BUILT_SOURCES = \
+  generated/src/proto/async-io.capnp.c++ \
+  generated/src/proto/ca-cas.capnp.c++ \
+  generated/src/proto/columnfile.capnp.c++ \
+  generated/src/proto/util.capnp.c++
+
+generated/src/proto/%.capnp.c++: src/proto/%.capnp
+	$(AM_V_GEN)capnp compile -oc++:generated $<
