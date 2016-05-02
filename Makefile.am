@@ -67,6 +67,7 @@ libca_cas_la_SOURCES = \
   src/client.cc \
   src/client.h
 libca_cas_la_LIBADD = \
+  src/libcolumnfile.la \
   src/libutil.la \
   src/libproto.la \
   $(CAPNP_RPC_LIBS) \
