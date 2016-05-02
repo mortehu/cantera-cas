@@ -24,5 +24,5 @@ AC_LANG_PUSH([C++])
 AX_CXX_COMPILE_STDCXX_14([], [])
 AC_LANG_POP([C++])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile ca-cas.pc])
 AC_OUTPUT

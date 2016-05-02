@@ -21,6 +21,9 @@ check_PROGRAMS = \
   src/balancer_test \
   src/storage-server_test
 
+dist_check_SCRIPTS = \
+  src/end2end_test.sh
+
 ca_cas_includedir = $(includedir)/ca-cas
 ca_cas_include_HEADERS = \
   src/cas-columnfile.h \
@@ -33,7 +36,10 @@ ca_cas_proto_include_HEADERS = \
   generated/src/proto/columnfile.capnp.h \
   generated/src/proto/util.capnp.h
 
-TESTS = $(check_PROGRAMS) src/end2end_test.sh
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = ca-cas.pc
+
+TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -Isrc -Igenerated/src
@@ -41,8 +47,25 @@ AM_LDFLAGS = -lpthread
 
 include third_party/gtest/Makefile.am
 
+EXTRA_DIST = \
+  LICENSE \
+  README.md \
+  debian/ca-cas.dirs \
+  debian/ca-cas.install \
+  debian/changelog \
+  debian/compat \
+  debian/control \
+  debian/copyright \
+  debian/libca-cas-dev.dirs \
+  debian/libca-cas-dev.install \
+  debian/libca-cas0.dirs \
+  debian/libca-cas0.install \
+  debian/rules \
+  debian/source/format
+
 libca_cas_la_SOURCES = \
-  src/client.cc
+  src/client.cc \
+  src/client.h
 libca_cas_la_LIBADD = \
   src/libutil.la \
   src/libproto.la \
@@ -50,7 +73,8 @@ libca_cas_la_LIBADD = \
   $(CRYPTO_LIBS)
 
 src_libbalancer_la_SOURCES = \
-  src/balancer.cc
+  src/balancer.cc \
+  src/balancer.h
 src_libbalancer_la_LIBADD = \
   src/libsharding.la \
   libca-cas.la
@@ -58,7 +82,8 @@ src_libbalancer_la_LIBADD = \
 src_libstorage_la_SOURCES = \
   src/async-io.cc \
   src/async-io.h \
-  src/storage-server.cc
+  src/storage-server.cc \
+  src/storage-server.h
 src_libstorage_la_LIBADD = \
   $(CAPNP_RPC_LIBS) \
   $(CRYPTO_LIBS) \
@@ -71,12 +96,15 @@ src_libsharding_la_LIBADD = \
   $(YAML_LIBS)
 
 src_libutil_la_SOURCES = \
+  src/bytestream.h \
   src/io.cc \
   src/io.h \
   src/key.cc \
   src/key.h \
   src/progress.cc \
   src/progress.h \
+  src/rpc.h \
+  src/sha1.h \
   src/util.cc \
   src/util.h
 src_libutil_la_LIBADD = \

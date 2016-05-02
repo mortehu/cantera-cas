@@ -1,0 +1,37 @@
+Source: ca-cas
+Priority: optional
+Maintainer: Morten Hustveit <morten.hustveit@gmail.com>
+Build-Depends: debhelper (>=9), autotools-dev
+Standards-Version: 3.9.6
+Section: libs
+Homepage: https://github.com/mortehu/cantera-cas/
+
+Package: ca-cas
+Architecture: any
+Depends: libca-cas0 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: Content addressable storage system
+ Cantera CAS can store large objects and column oriented tables across multiple
+ machines and multiple storage devices, maintaining fault tolerance and
+ graceful degradation, without the use of RAID or networked file systems.
+
+Package: libca-cas-dev
+Section: libdevel
+Architecture: any
+Depends: libca-cas0 (= ${binary:Version}), ${misc:Depends}
+Description: Content addressable storage system (development files)
+ Cantera CAS can store large objects and column oriented tables across multiple
+ machines and multiple storage devices, maintaining fault tolerance and
+ graceful degradation, without the use of RAID or networked file systems.
+ .
+ This package contains the files needed for developing C++ program using the
+ Cantera CAS C++ client library.
+
+Package: libca-cas0
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Content addressable storage system (client library)
+ Cantera CAS can store large objects and column oriented tables across multiple
+ machines and multiple storage devices, maintaining fault tolerance and
+ graceful degradation, without the use of RAID or networked file systems.
+ .
+ This package contains the Cantera CAS C++ client library.
