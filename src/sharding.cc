@@ -37,7 +37,7 @@ ShardingInfo::ShardingInfo(const std::string& filename,
     auto failure_domain = config_backend["failure-domain"];
     if (failure_domain.IsDefined()) {
       KJ_REQUIRE(failure_domain.IsScalar());
-      backend.failure_domain = failure_domain.as<uint8_t>();
+      backend.failure_domain = failure_domain.as<int>();
     }
 
     KJ_CONTEXT(backend.addr, backend.failure_domain);
