@@ -34,6 +34,7 @@
 #include "util.h"
 
 using namespace cantera;
+using namespace cantera::cas_internal;
 
 namespace {
 

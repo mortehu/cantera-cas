@@ -30,6 +30,8 @@
 
 namespace cantera {
 
+using namespace cas_internal;
+
 class CASClient::Impl {
  public:
   Impl(kj::AsyncIoContext& aio_context)
@@ -51,7 +53,7 @@ class CASClient::Impl {
 
   std::string addr;
 
-  std::unique_ptr<cas_internal::RPCClient> client;
+  std::unique_ptr<RPCClient> client;
 
   CAS::Client cas_client;
 
@@ -76,7 +78,7 @@ CASClient::CASClient(kj::AsyncIoContext& aio_context)
 CASClient::CASClient(kj::Own<kj::AsyncIoStream> stream,
                      kj::AsyncIoContext& aio_context)
     : pimpl_{std::make_unique<Impl>(aio_context)} {
-  pimpl_->client = std::make_unique<cas_internal::RPCClient>(std::move(stream));
+  pimpl_->client = std::make_unique<RPCClient>(std::move(stream));
   pimpl_->cas_client = pimpl_->client->GetMain<CAS::Client>();
 }
 
@@ -111,7 +113,7 @@ kj::Promise<void> CASClient::GetStream(const string_view& key,
 
   if (key.front() == 'P') {
     auto buffer = kj::heapArray<capnp::byte>((key.size() - 1) * 3 / 4);
-    cas_internal::Base64ToBinary(key.substr(1), buffer.begin());
+    Base64ToBinary(key.substr(1), buffer.begin());
 
     auto expect_size_request = stream.expectSizeRequest();
     expect_size_request.setSize(buffer.size());
@@ -158,19 +160,16 @@ kj::Promise<std::string> CASClient::PutAsync(const void* data, size_t size,
                                              bool sync) {
   if (size < pimpl_->max_object_in_key_size) {
     std::string key("P");
-    cas_internal::ToBase64(
-        string_view{reinterpret_cast<const char*>(data), size}, key,
-        cas_internal::kBase64Chars);
+    ToBase64(string_view{reinterpret_cast<const char*>(data), size}, key,
+             kBase64Chars);
     while (key.back() == '=') key.pop_back();
     return std::move(key);
   }
 
   CASKey sha1;
-  cas_internal::SHA1::Digest(data, size, sha1.begin());
+  SHA1::Digest(data, size, sha1.begin());
 
-  return PutAsync(sha1, data, size, sync).then([sha1] {
-    return sha1.ToHex();
-  });
+  return PutAsync(sha1, data, size, sync).then([sha1] { return sha1.ToHex(); });
 }
 
 kj::Array<const char> CASClient::Get(const string_view& key) {
@@ -368,8 +367,7 @@ kj::Promise<void> CASClient::Impl::Connect() {
   on_connect =
       stream_promise
           .then([this](kj::Own<kj::AsyncIoStream> stream) {
-            client =
-                std::make_unique<cas_internal::RPCClient>(std::move(stream));
+            client = std::make_unique<RPCClient>(std::move(stream));
             cas_client = client->GetMain<CAS::Client>();
             on_disconnect =
                 client->OnDisconnect()

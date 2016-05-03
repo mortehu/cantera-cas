@@ -12,6 +12,7 @@
 #include "sharding.h"
 
 namespace cantera {
+namespace cas_internal {
 
 class BalancerServer : public CAS::Server {
  public:
@@ -63,4 +64,5 @@ class BalancerServer : public CAS::Server {
   uint64_t gc_id_ = 0;
 };
 
+}  // namespace cas_internal
 }  // namespace cantera

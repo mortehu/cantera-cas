@@ -8,6 +8,7 @@
 #include "proto/util.capnp.h"
 
 namespace cantera {
+namespace cas_internal {
 
 class ByteStreamProducer : private kj::TaskSet::ErrorHandler {
  public:
@@ -101,6 +102,7 @@ class ByteStreamCollector : public ByteStream::Server {
   size_t offset_ = 0;
 };
 
+}  // namespace cas_internal
 }  // namespace cantera
 
 #endif  // !CANTERA_BYTESTREAM_H_

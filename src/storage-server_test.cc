@@ -23,10 +23,11 @@
 #include "io.h"
 #include "sha1.h"
 #include "storage-server.h"
-#include "util.h"
 #include "third_party/gtest/gtest.h"
+#include "util.h"
 
 using namespace cantera;
+using namespace cantera::cas_internal;
 
 struct StorageServerTest : testing::Test {
  public:
@@ -67,12 +68,11 @@ struct StorageServerTest : testing::Test {
   void Connect() {
     auto channel = async_io_.provider->newTwoWayPipe();
 
-    server_ = std::make_unique<cas_internal::RPCServer<CAS>>(
+    server_ = std::make_unique<RPCServer<CAS>>(
         kj::heap<StorageServer>(temp_directory_.c_str(), 0, async_io_),
         std::move(channel.ends[0]));
 
-    client_ =
-        std::make_unique<cas_internal::RPCClient>(std::move(channel.ends[1]));
+    client_ = std::make_unique<RPCClient>(std::move(channel.ends[1]));
 
     cas_ = std::make_unique<CAS::Client>(client_->GetMain<CAS>());
   }
@@ -91,8 +91,7 @@ struct StorageServerTest : testing::Test {
 
   CASKey PutObject(kj::Array<const capnp::byte> data) {
     CASKey data_sha1_digest;
-    cas_internal::SHA1::Digest(data.begin(), data.size(),
-                               data_sha1_digest.begin());
+    SHA1::Digest(data.begin(), data.size(), data_sha1_digest.begin());
 
     auto put_request = cas_->putRequest();
     put_request.setKey(kj::arrayPtr<capnp::byte>(data_sha1_digest.begin(), 20));
@@ -116,8 +115,8 @@ struct StorageServerTest : testing::Test {
 
   std::string temp_directory_;
 
-  std::unique_ptr<cas_internal::RPCServer<CAS>> server_;
-  std::unique_ptr<cas_internal::RPCClient> client_;
+  std::unique_ptr<RPCServer<CAS>> server_;
+  std::unique_ptr<RPCClient> client_;
   std::unique_ptr<CAS::Client> cas_;
 };
 
@@ -228,8 +227,7 @@ TEST_F(StorageServerTest, PutThenList) {
     auto data = RandomData();
 
     CASKey data_sha1_digest;
-    cas_internal::SHA1::Digest(data.begin(), data.size(),
-                               data_sha1_digest.begin());
+    SHA1::Digest(data.begin(), data.size(), data_sha1_digest.begin());
 
     auto put_request = cas_->putRequest();
     put_request.setKey(kj::arrayPtr<capnp::byte>(data_sha1_digest.begin(), 20));

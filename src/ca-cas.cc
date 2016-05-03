@@ -54,6 +54,7 @@
 #include "util.h"
 
 using namespace cantera;
+using namespace cantera::cas_internal;
 
 namespace {
 
@@ -102,7 +103,7 @@ class MoveQueue {
 
   void RunQueue(size_t max_concurrency) {
     const auto concurrency = std::min(max_concurrency, move_count_);
-    progress_ = std::make_unique<cas_internal::Progress>(move_count_, "moves");
+    progress_ = std::make_unique<Progress>(move_count_, "moves");
 
     auto promises = kj::Vector<kj::Promise<void>>(concurrency);
 
@@ -156,7 +157,7 @@ class MoveQueue {
   size_t move_count_ = 0;
 
   MoveMap::iterator next_queue_;
-  std::unique_ptr<cas_internal::Progress> progress_;
+  std::unique_ptr<Progress> progress_;
 };
 
 class RemovalQueue {
@@ -169,8 +170,7 @@ class RemovalQueue {
 
   void RunQueue(size_t max_concurrency) {
     const auto concurrency = std::min(max_concurrency, removal_count_);
-    progress_ =
-        std::make_unique<cas_internal::Progress>(removal_count_, "removals");
+    progress_ = std::make_unique<Progress>(removal_count_, "removals");
 
     auto promises = kj::Vector<kj::Promise<void>>(concurrency);
 
@@ -215,7 +215,7 @@ class RemovalQueue {
   size_t removal_count_ = 0;
 
   RemovalMap::iterator next_queue_;
-  std::unique_ptr<cas_internal::Progress> progress_;
+  std::unique_ptr<Progress> progress_;
 };
 
 class ExportQueue {
@@ -277,7 +277,7 @@ class ExportQueue {
 
   std::vector<CASKey> objects_;
 
-  cas_internal::Progress progress_;
+  Progress progress_;
 
   cantera::ColumnFileWriter output_;
 };
@@ -334,7 +334,7 @@ bool EndGC(CASClient* client, char** argv, int argc) {
          argc);
   }
 
-  const auto id = cas_internal::StringToUInt64(argv[0]);
+  const auto id = StringToUInt64(argv[0]);
   client->EndGC(id).wait(aio_context->waitScope);
 
   return true;
@@ -351,12 +351,11 @@ bool Ping(CASClient* client, char** argv, int argc) {
 
 bool Put(CASClient* client, char** argv, int argc) {
   if (argc == 0) {
-    const auto key = client->Put(cas_internal::ReadFile(STDIN_FILENO));
+    const auto key = client->Put(ReadFile(STDIN_FILENO));
     printf("%s\n", key.c_str());
   } else {
     for (int i = 0; i < argc; ++i) {
-      const auto key = client->Put(
-          cas_internal::ReadFile(cas_internal::OpenFile(argv[i], O_RDONLY)));
+      const auto key = client->Put(ReadFile(OpenFile(argv[i], O_RDONLY)));
       printf("%s\n", key.c_str());
     }
   }
@@ -377,7 +376,7 @@ bool List(CASClient* client, char** argv, int argc) {
       ->ListAsync(
           [&hex](const CASKey& key) {
             hex.clear();
-            cas_internal::BinaryToHex(key.begin(), key.size(), &hex);
+            BinaryToHex(key.begin(), key.size(), &hex);
             printf("%s\n", hex.c_str());
           },
           list_mode, min_size, max_size)
@@ -446,7 +445,7 @@ void Balance(char** argv, int argc) {
   std::vector<std::pair<CASKey, CASClient*>> object_presence;
 
   {
-    cas_internal::Progress progress(backends.size(), "backends");
+    Progress progress(backends.size(), "backends");
 
     auto promises = kj::Vector<kj::Promise<void>>(backends.size());
 
@@ -474,7 +473,7 @@ void Balance(char** argv, int argc) {
   RemovalQueue removals;
 
   {
-    cas_internal::Progress progress(object_presence.size(), "objects");
+    Progress progress(object_presence.size(), "objects");
 
     std::mt19937_64 rng;
 
@@ -537,10 +536,10 @@ bool Export(CASClient* client, char** argv, int argc) {
     if (!strcmp(argv[0], "-")) {
       input = kj::AutoCloseFd(STDIN_FILENO);
     } else {
-      input = cas_internal::OpenFile(argv[0], O_RDONLY);
+      input = OpenFile(argv[0], O_RDONLY);
     }
 
-    cas_internal::ReadLines<string_view>(input, [&objects](auto&& key) {
+    ReadLines<string_view>(input, [&objects](auto&& key) {
       objects.emplace(CASKey::FromString(key));
     });
   } else {
@@ -556,8 +555,7 @@ bool Export(CASClient* client, char** argv, int argc) {
   }
 
   for (const auto& exclude_path : exclude_paths) {
-    cantera::ColumnFileReader reader(
-        cas_internal::OpenFile(exclude_path.c_str(), O_RDONLY));
+    cantera::ColumnFileReader reader(OpenFile(exclude_path.c_str(), O_RDONLY));
     reader.SetColumnFilter({0});
 
     while (!reader.End()) {
@@ -623,11 +621,11 @@ int main(int argc, char** argv) try {
         break;
 
       case kOptionMaxSize:
-        max_size = cas_internal::StringToUInt64(optarg);
+        max_size = StringToUInt64(optarg);
         break;
 
       case kOptionMinSize:
-        min_size = cas_internal::StringToUInt64(optarg);
+        min_size = StringToUInt64(optarg);
         break;
 
       case kOptionServerAddress:

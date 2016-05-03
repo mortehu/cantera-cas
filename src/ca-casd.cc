@@ -38,6 +38,7 @@
 #include "src/util.h"
 
 using namespace cantera;
+using namespace cantera::cas_internal;
 
 namespace {
 
@@ -128,18 +129,17 @@ int main(int argc, char** argv) try {
   }
 
   auto aio_context = kj::setupAsyncIo();
-  auto listen_address =
-      aio_context.provider->getNetwork()
-          .parseAddress(address, cas_internal::StringToUInt64(service))
-          .wait(aio_context.waitScope);
+  auto listen_address = aio_context.provider->getNetwork()
+                            .parseAddress(address, StringToUInt64(service))
+                            .wait(aio_context.waitScope);
 
   unsigned int flags = 0;
   if (disable_read) flags |= StorageServer::kDisableRead;
 
   auto storage_server = kj::heap<StorageServer>(".", flags, aio_context);
 
-  cas_internal::RPCListeningServer<CAS> server(
-      aio_context, std::move(storage_server), listen_address->listen());
+  RPCListeningServer<CAS> server(aio_context, std::move(storage_server),
+                                 listen_address->listen());
 
   if (!no_detach) {
     KJ_SYSCALL(daemon(0 /* nochdir */, 0 /* noclose */));

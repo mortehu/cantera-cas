@@ -18,14 +18,15 @@
 #include <climits>
 #include <random>
 
-#include "client.h"
 #include "balancer.h"
 #include "bytestream.h"
+#include "client.h"
 #include "sha1.h"
 #include "storage-server.h"
 #include "third_party/gtest/gtest.h"
 
 using namespace cantera;
+using namespace cantera::cas_internal;
 
 struct RpcBalancerTest : testing::Test {
  public:
@@ -41,11 +42,10 @@ struct RpcBalancerTest : testing::Test {
     auto balancer_server = kj::heap<BalancerServer>(async_io_);
     balancer_server_ = balancer_server.get();
 
-    balancer_ = std::make_unique<cas_internal::RPCServer<CAS>>(
+    balancer_ = std::make_unique<RPCServer<CAS>>(
         std::move(balancer_server), std::move(balancer_channel.ends[0]));
 
-    client_ = std::make_unique<cas_internal::RPCClient>(
-        std::move(balancer_channel.ends[1]));
+    client_ = std::make_unique<RPCClient>(std::move(balancer_channel.ends[1]));
 
     cas_ = std::make_unique<CAS::Client>(client_->GetMain<CAS>());
   }
@@ -65,10 +65,9 @@ struct RpcBalancerTest : testing::Test {
 
     auto repo_root = TemporaryDirectory();
 
-    storage_servers_.emplace_back(
-        std::make_unique<cas_internal::RPCServer<CAS>>(
-            kj::heap<StorageServer>(repo_root.c_str(), 0, async_io_),
-            std::move(backend_channel.ends[0])));
+    storage_servers_.emplace_back(std::make_unique<RPCServer<CAS>>(
+        kj::heap<StorageServer>(repo_root.c_str(), 0, async_io_),
+        std::move(backend_channel.ends[0])));
 
     auto client = std::make_shared<CASClient>(
         std::move(backend_channel.ends[1]), async_io_);
@@ -100,8 +99,7 @@ struct RpcBalancerTest : testing::Test {
 
   CASKey PutObject(kj::Array<const capnp::byte> data) {
     CASKey data_sha1_digest;
-    cas_internal::SHA1::Digest(data.begin(), data.size(),
-                               data_sha1_digest.begin());
+    SHA1::Digest(data.begin(), data.size(), data_sha1_digest.begin());
 
     auto put_request = cas_->putRequest();
     put_request.setKey(kj::arrayPtr<capnp::byte>(data_sha1_digest.begin(), 20));
@@ -122,11 +120,11 @@ struct RpcBalancerTest : testing::Test {
 
   kj::AsyncIoContext async_io_;
 
-  std::vector<std::unique_ptr<cas_internal::RPCServer<CAS>>> storage_servers_;
+  std::vector<std::unique_ptr<RPCServer<CAS>>> storage_servers_;
 
   BalancerServer* balancer_server_ = nullptr;
-  std::unique_ptr<cas_internal::RPCServer<CAS>> balancer_;
-  std::unique_ptr<cas_internal::RPCClient> client_;
+  std::unique_ptr<RPCServer<CAS>> balancer_;
+  std::unique_ptr<RPCClient> client_;
   std::unique_ptr<CAS::Client> cas_;
 };
 
@@ -144,8 +142,7 @@ TEST_F(RpcBalancerTest, PutThenList) {
     auto data = RandomData();
 
     CASKey data_sha1_digest;
-    cas_internal::SHA1::Digest(data.begin(), data.size(),
-                               data_sha1_digest.begin());
+    SHA1::Digest(data.begin(), data.size(), data_sha1_digest.begin());
 
     keys.emplace_back(data_sha1_digest);
 
@@ -207,8 +204,7 @@ TEST_F(RpcBalancerTest, SimplePutAndGet) {
 
   auto data = RandomData();
   CASKey data_sha1_digest;
-  cas_internal::SHA1::Digest(data.begin(), data.size(),
-                             data_sha1_digest.begin());
+  SHA1::Digest(data.begin(), data.size(), data_sha1_digest.begin());
 
   auto put_request = cas_->putRequest();
   put_request.setKey(kj::arrayPtr<capnp::byte>(data_sha1_digest.begin(), 20));
@@ -241,8 +237,7 @@ TEST_F(RpcBalancerTest, PutWithWrongKeyThrows) {
 
   auto data = RandomData();
   CASKey data_sha1_digest;
-  cas_internal::SHA1::Digest(data.begin(), data.size(),
-                             data_sha1_digest.begin());
+  SHA1::Digest(data.begin(), data.size(), data_sha1_digest.begin());
 
   // We generate new random data, so that the SHA-1 digests calculated here and
   // on the storage server won't match.
@@ -295,8 +290,7 @@ TEST_F(RpcBalancerTest, PutAndGetSharded) {
       auto data = RandomData();
 
       CASKey data_sha1_digest;
-      cas_internal::SHA1::Digest(data.begin(), data.size(),
-                                 data_sha1_digest.begin());
+      SHA1::Digest(data.begin(), data.size(), data_sha1_digest.begin());
       keys.emplace_back(data_sha1_digest.begin());
 
       auto put_request = cas_->putRequest();

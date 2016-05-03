@@ -32,12 +32,13 @@
 #include <kj/arena.h>
 #include <kj/debug.h>
 
-#include "client.h"
 #include "balancer.h"
-#include "util.h"
+#include "client.h"
 #include "proto/ca-cas.capnp.h"
+#include "util.h"
 
 namespace cantera {
+namespace cas_internal {
 
 namespace {
 
@@ -406,4 +407,5 @@ kj::Promise<void> BalancerServer::GetObjectFromBackends(
       });
 }
 
+}  // namespace cas_internal
 }  // namespace cantera

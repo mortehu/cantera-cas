@@ -8,6 +8,7 @@
 #include "client.h"
 
 namespace cantera {
+namespace cas_internal {
 
 class ShardingInfo {
  public:
@@ -65,6 +66,7 @@ class ShardingInfo {
   HashRing hash_ring_;
 };
 
+}  // namespace cas_internal
 }  // namespace cantera
 
 #endif  // !STORAGE_CA_CAS_SHARDING_H_

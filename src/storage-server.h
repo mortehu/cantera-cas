@@ -13,6 +13,7 @@
 #include "rpc.h"
 
 namespace cantera {
+namespace cas_internal {
 
 class PackManager;
 
@@ -129,4 +130,5 @@ class StorageServer : public CAS::Server {
   int compacting_data_file_ = -1;
 };
 
+}  // namespace cas_internal
 }  // namespace cantera

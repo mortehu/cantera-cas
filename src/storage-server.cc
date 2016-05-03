@@ -28,6 +28,7 @@
 #include <memory>
 #include <random>
 #include <thread>
+#include <utility>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -48,6 +49,7 @@
 #include "sha1.h"
 
 namespace cantera {
+namespace cas_internal {
 
 namespace {
 
@@ -763,4 +765,5 @@ std::vector<size_t> StorageServer::GetUnreclaimedSpace() {
   return result;
 }
 
+}  // namespace cas_internal
 }  // namespace cantera

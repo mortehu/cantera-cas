@@ -25,6 +25,7 @@
 #include "src/util.h"
 
 namespace cantera {
+namespace cas_internal {
 
 ShardingInfo::ShardingInfo(kj::AsyncIoContext& aio_context)
     : aio_context_{aio_context} {}
@@ -160,4 +161,5 @@ ShardingInfo::HashRing::const_iterator ShardingInfo::FirstBackendForKey(
   return result;
 }
 
+}  // namespace cas_internal
 }  // namespace cantera
