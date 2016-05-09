@@ -1,3 +1,10 @@
+ca-cas (1.1.2-1) unstable; urgency=medium
+
+  * Remove generated source files and add Cap'n Proto schema definition needed
+    to compile from scratch.
+
+ -- Morten Hustveit <morten.hustveit@gmail.com>  Mon, 09 May 2016 17:09:53 -0400
+
 ca-cas (1.1.1-1) unstable; urgency=medium
 
   * Add Python 3 module.

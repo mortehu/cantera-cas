@@ -31,7 +31,7 @@ ca_cas_include_HEADERS = \
   src/key.h
 
 ca_cas_proto_includedir = $(includedir)/ca-cas/proto
-ca_cas_proto_include_HEADERS = \
+nodist_ca_cas_proto_include_HEADERS = \
   generated/src/proto/ca-cas.capnp.h \
   generated/src/proto/columnfile.capnp.h \
   generated/src/proto/util.capnp.h
@@ -62,7 +62,11 @@ EXTRA_DIST = \
   debian/libca-cas0.install \
   debian/python3-ca-cas.install \
   debian/rules \
-  debian/source/format
+  debian/source/format \
+  src/proto/async-io.capnp \
+  src/proto/ca-cas.capnp \
+  src/proto/columnfile.capnp \
+  src/proto/util.capnp
 
 libca_cas_la_SOURCES = \
   src/client.cc \
@@ -116,7 +120,7 @@ src_libutil_la_LIBADD = \
 src_libcolumnfile_la_SOURCES = \
   src/cas-columnfile.cc
 
-src_libproto_la_SOURCES = \
+nodist_src_libproto_la_SOURCES = \
   generated/src/proto/async-io.capnp.c++ \
   generated/src/proto/async-io.capnp.h \
   generated/src/proto/columnfile.capnp.c++ \
@@ -217,9 +221,10 @@ BUILT_SOURCES += \
   generated/python/swig_wrap.cc
 
 _ca_cas_la_SOURCES = \
-  generated/python/swig_wrap.cc \
   python/cas.cc \
   python/cas.h
+nodist__ca_cas_la_SOURCES = \
+  generated/python/swig_wrap.cc
 _ca_cas_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 
 nodist_python_PYTHON = generated/python/ca_cas.py
