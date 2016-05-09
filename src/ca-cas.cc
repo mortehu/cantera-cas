@@ -140,8 +140,8 @@ class MoveQueue {
 
     const auto& key = std::get<CASKey>(move);
 
-    auto get_request = source->GetStream(key.ToHex(),
-                                         target->PutStream(key, false));
+    auto get_request =
+        source->GetStream(key.ToString(), target->PutStream(key, false));
 
     return get_request.then([this] {
       if (progress_) progress_->Put(1);
@@ -249,9 +249,9 @@ class ExportQueue {
     const auto key = objects_.back();
     objects_.pop_back();
 
-    const auto hex_key = key.ToHex();
+    const auto string_key = key.ToString();
 
-    auto get_request = client_->GetAsync(hex_key);
+    auto get_request = client_->GetAsync(string_key);
 
     return get_request.then([this, key](auto data) {
       static const auto kFlushIntervalBytes = UINT64_C(64)

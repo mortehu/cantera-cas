@@ -161,15 +161,16 @@ kj::Promise<std::string> CASClient::PutAsync(const void* data, size_t size,
   if (size < pimpl_->max_object_in_key_size) {
     std::string key("P");
     ToBase64(string_view{reinterpret_cast<const char*>(data), size}, key,
-             kBase64Chars);
-    while (key.back() == '=') key.pop_back();
+             kBase64Chars, false);
     return std::move(key);
   }
 
   CASKey sha1;
   SHA1::Digest(data, size, sha1.begin());
 
-  return PutAsync(sha1, data, size, sync).then([sha1] { return sha1.ToHex(); });
+  return PutAsync(sha1, data, size, sync).then([sha1] {
+    return sha1.ToString();
+  });
 }
 
 kj::Array<const char> CASClient::Get(const string_view& key) {

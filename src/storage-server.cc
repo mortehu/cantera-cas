@@ -346,7 +346,7 @@ kj::Promise<void> StorageServer::get(CAS::Server::GetContext context) {
                        object_offset + read_offset, object_offset + read_size);
   }
 
-  KJ_FAIL_REQUIRE("Object does not exist", sha1.ToHex());
+  KJ_FAIL_REQUIRE("Object does not exist", sha1.ToString());
 }
 
 kj::Promise<void> StorageServer::beginGC(BeginGCContext context) {

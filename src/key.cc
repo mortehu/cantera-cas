@@ -22,11 +22,52 @@
 
 namespace cantera {
 
-CASKey CASKey::FromString(const string_view& hex) {
-  KJ_REQUIRE(hex.size() == 40, hex.size());
+CASKey CASKey::FromString(const string_view& str) {
+  KJ_REQUIRE(!str.empty());
+
   CASKey result;
-  cas_internal::HexToBinary(hex.begin(), hex.end(), result.begin());
-  return result;
+
+  switch (str[0]) {
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+    case 'a':
+    case 'b':
+    case 'c':
+    case 'd':
+    case 'e':
+    case 'f':
+    case 'A':
+    case 'B':
+    case 'C':
+    case 'D':
+    case 'E':
+    case 'F':
+      KJ_REQUIRE(str.size() == 40, "Hexadecimal key must be 40 characters",
+                 str.size());
+      cas_internal::HexToBinary(str.begin(), str.end(), result.begin());
+      return result;
+
+    case 'G':
+      KJ_REQUIRE(str.size() >= 28, "Base64 key must be at least 28 characters",
+                 str.size());
+      cas_internal::Base64ToBinary(str.substr(1, 28), result.begin());
+      return result;
+
+    case 'P':
+      KJ_FAIL_REQUIRE("Can't use CASKey::FromString with in-key objects",
+                      str.to_string());
+
+    default:
+      KJ_FAIL_REQUIRE("Unknown key format", str.to_string());
+  }
 }
 
 CASKey::CASKey() noexcept {}
@@ -36,7 +77,9 @@ CASKey::CASKey(const kj::ArrayPtr<const capnp::byte>& key) noexcept {
   std::copy(key.begin(), key.end(), begin());
 }
 
-CASKey::CASKey(const uint8_t* key) noexcept { std::copy(key, key + 20, begin()); }
+CASKey::CASKey(const uint8_t* key) noexcept {
+  std::copy(key, key + 20, begin());
+}
 
 CASKey::CASKey(const CASKey& rhs) noexcept : std::array<uint8_t, 20>(rhs) {}
 
@@ -56,29 +99,31 @@ CASKey& CASKey::operator=(CASKey&& rhs) noexcept {
 
 uint64_t CASKey::Prefix() const {
   return static_cast<uint64_t>((*this)[0]) << 56ULL |
-          static_cast<uint64_t>((*this)[1]) << 48ULL |
-          static_cast<uint64_t>((*this)[2]) << 40ULL |
-          static_cast<uint64_t>((*this)[3]) << 32ULL |
-          static_cast<uint64_t>((*this)[4]) << 24ULL |
-          static_cast<uint64_t>((*this)[5]) << 16ULL |
-          static_cast<uint64_t>((*this)[6]) << 8ULL |
-          static_cast<uint64_t>((*this)[7]);
+         static_cast<uint64_t>((*this)[1]) << 48ULL |
+         static_cast<uint64_t>((*this)[2]) << 40ULL |
+         static_cast<uint64_t>((*this)[3]) << 32ULL |
+         static_cast<uint64_t>((*this)[4]) << 24ULL |
+         static_cast<uint64_t>((*this)[5]) << 16ULL |
+         static_cast<uint64_t>((*this)[6]) << 8ULL |
+         static_cast<uint64_t>((*this)[7]);
 }
 
 uint64_t CASKey::Suffix() const {
   return static_cast<uint64_t>((*this)[12]) << 56ULL |
-          static_cast<uint64_t>((*this)[13]) << 48ULL |
-          static_cast<uint64_t>((*this)[14]) << 40ULL |
-          static_cast<uint64_t>((*this)[15]) << 32ULL |
-          static_cast<uint64_t>((*this)[16]) << 24ULL |
-          static_cast<uint64_t>((*this)[17]) << 16ULL |
-          static_cast<uint64_t>((*this)[18]) << 8ULL |
-          static_cast<uint64_t>((*this)[19]);
+         static_cast<uint64_t>((*this)[13]) << 48ULL |
+         static_cast<uint64_t>((*this)[14]) << 40ULL |
+         static_cast<uint64_t>((*this)[15]) << 32ULL |
+         static_cast<uint64_t>((*this)[16]) << 24ULL |
+         static_cast<uint64_t>((*this)[17]) << 16ULL |
+         static_cast<uint64_t>((*this)[18]) << 8ULL |
+         static_cast<uint64_t>((*this)[19]);
 }
 
-std::string CASKey::ToHex() const {
-  std::string result;
-  cas_internal::BinaryToHex(begin(), size(), &result);
+std::string CASKey::ToString() const {
+  std::string result("G");
+  cas_internal::ToBase64(
+      string_view{reinterpret_cast<const char*>(data()), size()}, result,
+      cas_internal::kBase64Chars, false);
   return result;
 }
 

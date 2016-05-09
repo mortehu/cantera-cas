@@ -103,7 +103,8 @@ unsigned char* Base64ToBinary(const T& input, unsigned char* output) {
 }
 
 template <typename T>
-void ToBase64(const T& input, std::string& output, const char* alphabet) {
+void ToBase64(const T& input, std::string& output, const char* alphabet,
+              bool do_padding = true) {
   if (input.empty()) return;
 
   const auto orig_output_size = output.size();
@@ -128,8 +129,10 @@ void ToBase64(const T& input, std::string& output, const char* alphabet) {
     } while (i_shift > 6 || (!remaining && i_shift > 0));
   }
 
-  // Apply padding needed by some decoders.
-  while ((output.size() - orig_output_size) & 3) output.push_back('=');
+  if (do_padding) {
+    // Apply padding needed by some decoders.
+    while ((output.size() - orig_output_size) & 3) output.push_back('=');
+  }
 }
 
 inline std::string StringPrintf(const char* format, ...) {

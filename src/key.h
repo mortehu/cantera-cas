@@ -13,7 +13,7 @@ using string_view = std::experimental::string_view;
 
 struct CASKey : public std::array<uint8_t, 20> {
   // Converts a key string into its binary representation.
-  static CASKey FromString(const string_view& hex);
+  static CASKey FromString(const string_view& str);
 
   CASKey() noexcept;
 
@@ -37,8 +37,9 @@ struct CASKey : public std::array<uint8_t, 20> {
   // Returns a 64 byte integer based on the key suffix.
   uint64_t Suffix() const;
 
-  // Converts binary key into a 40 character hexadecimal string.
-  std::string ToHex() const;
+  // Converts binary key into a printable string, which can be converted back
+  // using `FromString()`.
+  std::string ToString() const;
 };
 
 }  // namespace cantera
