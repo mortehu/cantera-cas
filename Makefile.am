@@ -202,6 +202,7 @@ BUILT_SOURCES = \
   generated/src/proto/util.capnp.h
 
 generated/src/proto/%.capnp.c++: src/proto/%.capnp
+	$(MKDIR_P) generated/src
 	$(AM_V_GEN)capnp compile -oc++:generated $<
 
 generated/src/proto/%.capnp.h: generated/src/proto/%.capnp.c++
