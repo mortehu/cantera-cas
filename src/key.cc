@@ -123,7 +123,7 @@ std::string CASKey::ToString() const {
   std::string result("G");
   cas_internal::ToBase64(
       string_view{reinterpret_cast<const char*>(data()), size()}, result,
-      cas_internal::kBase64Chars, false);
+      cas_internal::kBase64WebSafeChars, false);
   return result;
 }
 
