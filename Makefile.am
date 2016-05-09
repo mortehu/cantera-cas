@@ -42,7 +42,7 @@ pkgconfig_DATA = ca-cas.pc
 TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = -Isrc -Igenerated/src
+AM_CPPFLAGS = -I$(srcdir)/src -Igenerated/src
 AM_LDFLAGS = -lpthread
 
 include third_party/gtest/Makefile.am
@@ -60,6 +60,7 @@ EXTRA_DIST = \
   debian/libca-cas-dev.install \
   debian/libca-cas0.dirs \
   debian/libca-cas0.install \
+  debian/python3-ca-cas.install \
   debian/rules \
   debian/source/format
 
@@ -184,11 +185,53 @@ src_storage_server_test_LDADD = \
   $(CAPNP_RPC_LIBS) \
   $(YAML_LIBS)
 
+CLEANFILES = $(BUILT_SOURCES)
+
 BUILT_SOURCES = \
   generated/src/proto/async-io.capnp.c++ \
+  generated/src/proto/async-io.capnp.h \
   generated/src/proto/ca-cas.capnp.c++ \
+  generated/src/proto/ca-cas.capnp.h \
   generated/src/proto/columnfile.capnp.c++ \
-  generated/src/proto/util.capnp.c++
+  generated/src/proto/columnfile.capnp.h \
+  generated/src/proto/util.capnp.c++ \
+  generated/src/proto/util.capnp.h
 
 generated/src/proto/%.capnp.c++: src/proto/%.capnp
 	$(AM_V_GEN)capnp compile -oc++:generated $<
+
+generated/src/proto/%.capnp.h: generated/src/proto/%.capnp.c++
+	@if test -f $@; then :; else \
+		rm -f $<; \
+		$(MAKE) $(AM_MAKEFLAGS) $<; \
+	fi
+
+if ENABLE_PYTHON
+EXTRA_DIST += \
+  python/ca_cas.swig
+python_LTLIBRARIES = _ca_cas.la
+_ca_cas_la_CPPFLAGS = $(AM_CPPFLAGS) $(PYTHON_CPPFLAGS)
+_ca_cas_la_LIBADD = libca-cas.la
+
+BUILT_SOURCES += \
+  generated/python/swig_wrap.cc
+
+_ca_cas_la_SOURCES = \
+  generated/python/swig_wrap.cc \
+  python/cas.cc \
+  python/cas.h
+_ca_cas_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+
+nodist_python_PYTHON = generated/python/ca_cas.py
+CLEANFILES += generated/python/ca_cas.py
+
+generated/python/swig_wrap.cc: python/ca_cas.swig
+	$(MKDIR_P) generated/python
+	$(AM_V_GEN)$(SWIG) -c++ -py3 -python -I$(srcdir) $(OUTPUT_OPTION) $<
+
+generated/python/ca_cas.py: generated/python/swig_wrap.cc
+	@if test -f $@; then :; else \
+		rm -f generated/python/swig_wrap.cc; \
+		$(MAKE) $(AM_MAKEFLAGS) generated/python/swig_wrap.cc; \
+	fi
+endif

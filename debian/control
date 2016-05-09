@@ -35,3 +35,13 @@ Description: Content addressable storage system (client library)
  graceful degradation, without the use of RAID or networked file systems.
  .
  This package contains the Cantera CAS C++ client library.
+
+Package: python3-ca-cas
+Architecture: any
+Depends: libca-cas0 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: Content addressable storage system (Python 3 module)
+ Cantera CAS can store large objects and column oriented tables across multiple
+ machines and multiple storage devices, maintaining fault tolerance and
+ graceful degradation, without the use of RAID or networked file systems.
+ .
+ This package contains the Cantera CAS Python 3 module.
