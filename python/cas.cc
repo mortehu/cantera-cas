@@ -100,6 +100,7 @@ PyObject* put(PyObject* data) {
 
       return result;
     } else {
+      KJ_REQUIRE(PyBytes_Check(data));
       const auto key =
           state.cas_client.Put(PyBytes_AS_STRING(data), PyBytes_GET_SIZE(data));
 
