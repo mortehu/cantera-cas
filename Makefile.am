@@ -42,7 +42,7 @@ pkgconfig_DATA = ca-cas.pc
 TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = -I$(srcdir)/src -Igenerated/src
+AM_CPPFLAGS = $(CAPNP_CFLAGS) -I$(srcdir)/src -Igenerated/src
 AM_LDFLAGS = -lpthread
 
 include third_party/gtest/Makefile.am
