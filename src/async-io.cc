@@ -45,7 +45,7 @@ std::mutex mutex;
 std::unordered_map<size_t, AsyncIOServer::IORequest*> pending_requests;
 size_t next_id;
 
-void SignalHandler(sigval_t val) {
+void SignalHandler(union sigval val) {
   try {
     auto arg = reinterpret_cast<SignalArgument*>(val.sival_ptr);
     arg->aio_server->PostEvent(arg->event_id);
