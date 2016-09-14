@@ -33,7 +33,12 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#if HAVE_SYS_VFS_H
 #include <sys/vfs.h>
+#else
+#include <sys/param.h>
+#include <sys/mount.h>
+#endif
 #include <syslog.h>
 #include <unistd.h>
 
