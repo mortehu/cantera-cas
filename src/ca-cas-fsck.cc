@@ -30,6 +30,7 @@
 #include <deque>
 #include <future>
 #include <mutex>
+#include <random>
 
 #include <err.h>
 #include <fcntl.h>
