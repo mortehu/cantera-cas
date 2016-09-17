@@ -77,7 +77,7 @@ libca_cas_la_LIBADD = \
   src/libproto.la \
   $(CAPNP_RPC_LIBS) \
   $(CRYPTO_LIBS)
-libca_cas_la_LDFLAGS = -no-undefined -version-info 0:0:0 -export-symbols-regex '^_ZN7cantera.*'
+libca_cas_la_LDFLAGS = -no-undefined -version-info 0:0:0 -export-symbols-regex '^_ZNK?7cantera.*'
 
 src_libbalancer_la_SOURCES = \
   src/balancer.cc \
