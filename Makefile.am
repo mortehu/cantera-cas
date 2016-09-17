@@ -43,7 +43,6 @@ TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = $(CAPNP_CFLAGS) -I$(srcdir)/src -Igenerated/src
-AM_LDFLAGS = -lpthread
 
 include third_party/gtest/Makefile.am
 
@@ -93,8 +92,7 @@ src_libstorage_la_SOURCES = \
   src/storage-server.h
 src_libstorage_la_LIBADD = \
   $(CAPNP_RPC_LIBS) \
-  $(CRYPTO_LIBS) \
-  -lrt
+  $(CRYPTO_LIBS)
 
 src_libsharding_la_SOURCES = \
   src/sharding.cc \
