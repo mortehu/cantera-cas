@@ -25,8 +25,6 @@
 #include <memory>
 #include <random>
 
-#include <kj/debug.h>
-
 #include "src/util.h"
 
 namespace cantera {
