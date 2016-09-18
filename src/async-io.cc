@@ -45,7 +45,7 @@ std::mutex mutex;
 std::unordered_map<size_t, AsyncIOServer::IORequest*> pending_requests;
 size_t next_id;
 
-void SignalHandler(sigval_t val) {
+void SignalHandler(union sigval val) {
   try {
     auto arg = reinterpret_cast<SignalArgument*>(val.sival_ptr);
     arg->aio_server->PostEvent(arg->event_id);
@@ -58,10 +58,32 @@ void SignalHandler(sigval_t val) {
 
 }  // namespace
 
+#if !HAVE_PIPE2
+static void CloseOnExec(int fd) {
+  int flags;
+  KJ_SYSCALL(flags = fcntl(fd, F_GETFD));
+  if ((flags & FD_CLOEXEC) == 0) {
+    KJ_SYSCALL(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
+  }
+}
+#endif
+
 AsyncIOServer::AsyncIOServer(kj::AsyncIoContext& async_io)
     : event_promise_(nullptr) {
   int pipe[2];
+#if HAVE_PIPE2
   KJ_SYSCALL(::pipe2(pipe, O_CLOEXEC));
+#else
+  KJ_SYSCALL(::pipe(pipe));
+  try {
+    CloseOnExec(pipe[0]);
+    CloseOnExec(pipe[1]);
+  } catch (...) {
+    close(pipe[0]);
+    close(pipe[1]);
+    throw;
+  }
+#endif
   event_writer_ = kj::AutoCloseFd(pipe[1]);
   event_reader_ = async_io.lowLevelProvider->wrapInputFd(pipe[0]);
   event_promise_ =

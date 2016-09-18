@@ -21,10 +21,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <cstring>
 #include <memory>
 #include <random>
-
-#include <kj/debug.h>
 
 #include "src/util.h"
 
@@ -167,7 +166,20 @@ kj::AutoCloseFd AnonTemporaryFile(const char* path, int mode) {
     if (!path) path = "/tmp";
   }
 
+#ifdef O_TMPFILE
   return OpenFile(path, O_TMPFILE | O_RDWR, mode);
+#else
+  size_t pathlen = std::strlen(path);
+  static const char suffix[] = "/ca-cas-XXXXXX";
+  std::unique_ptr<char[]> pathname(new char[pathlen + sizeof(suffix)]);
+  std::memcpy((void *)(pathname.get()), path, pathlen);
+  std::memcpy((void *)(pathname.get() + pathlen), suffix, sizeof(suffix));
+
+  int fd;
+  KJ_SYSCALL(fd = ::mkstemp(pathname.get()), pathname.get());
+  KJ_SYSCALL(unlink(pathname.get()), pathname.get());
+  return kj::AutoCloseFd(fd);
+#endif
 }
 
 void LinkAnonTemporaryFile(int dir_fd, int fd, const char* path) {

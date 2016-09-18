@@ -26,14 +26,17 @@
 #include <deque>
 #include <functional>
 #include <limits>
+#include <random>
 #include <unordered_map>
 
 #include <err.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <glob.h>
+#if HAVE_LINUX_FS_H
 #include <linux/fiemap.h>
 #include <linux/fs.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>

@@ -42,8 +42,7 @@ pkgconfig_DATA = ca-cas.pc
 TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = -I$(srcdir)/src -Igenerated/src
-AM_LDFLAGS = -lpthread
+AM_CPPFLAGS = $(CAPNP_CFLAGS) -I$(srcdir)/src -Igenerated/src
 
 include third_party/gtest/Makefile.am
 
@@ -77,7 +76,7 @@ libca_cas_la_LIBADD = \
   src/libproto.la \
   $(CAPNP_RPC_LIBS) \
   $(CRYPTO_LIBS)
-libca_cas_la_LDFLAGS = -no-undefined -version-info 0:0:0 -export-symbols-regex '^_ZN7cantera.*'
+libca_cas_la_LDFLAGS = -no-undefined -version-info 0:0:0 -export-symbols-regex '^_ZNK?7cantera.*'
 
 src_libbalancer_la_SOURCES = \
   src/balancer.cc \
@@ -93,8 +92,7 @@ src_libstorage_la_SOURCES = \
   src/storage-server.h
 src_libstorage_la_LIBADD = \
   $(CAPNP_RPC_LIBS) \
-  $(CRYPTO_LIBS) \
-  -lrt
+  $(CRYPTO_LIBS)
 
 src_libsharding_la_SOURCES = \
   src/sharding.cc \

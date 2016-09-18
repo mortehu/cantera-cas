@@ -142,7 +142,7 @@ kj::Promise<void> CASClient::GetStream(const string_view& key,
 
 kj::Promise<void> CASClient::PutAsync(const CASKey& key, const void* data,
                                       size_t size, bool sync) {
-  static const auto kWriteSize = UINT64_C(1) << 20;
+  static const size_t kWriteSize = UINT64_C(1) << 20;
 
   auto stream = kj::heap<ByteStreamProducer>(PutStream(key, sync));
   for (size_t offset = 0; offset < size; offset += kWriteSize) {

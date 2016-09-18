@@ -18,6 +18,8 @@
 #include "config.h"
 #endif
 
+#include <algorithm>
+
 #include <kj/debug.h>
 #include <yaml-cpp/yaml.h>
 

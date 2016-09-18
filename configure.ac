@@ -21,6 +21,11 @@ AC_PROG_CXX
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
+AC_CHECK_HEADERS([sys/vfs.h linux/fs.h])
+AC_SEARCH_LIBS([aio_read], [rt], [], [AC_MSG_ERROR(Cannot find asynchronous I/O library)])
+AC_SEARCH_LIBS([pthread_create], [pthread], [], [AC_MSG_ERROR(Cannot find pthread library)])
+AC_CHECK_FUNCS(pipe2)
+
 LT_INIT
 
 AC_LANG_PUSH([C++])

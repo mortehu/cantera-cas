@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <kj/debug.h>
 #include <kj/io.h>
 
 namespace cantera {
