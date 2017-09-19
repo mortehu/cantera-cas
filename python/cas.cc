@@ -34,7 +34,7 @@ PyObject* get(PyObject* key_arg) {
       // When a list of keys is requested, we issue simultaneous requests for
       // all the requested objects.
 
-      const auto count = PyList_Size(key_arg);
+      const size_t count = PyList_Size(key_arg);
 
       auto promise_array_builder =
           kj::heapArrayBuilder<kj::Promise<kj::Array<const char>>>(count);
@@ -77,7 +77,7 @@ PyObject* put(PyObject* data) {
       // When a list of byte objects is provided, we issue simultaneous
       // writes for all objects.
 
-      const auto count = PyList_Size(data);
+      const size_t count = PyList_Size(data);
 
       auto promise_array_builder =
           kj::heapArrayBuilder<kj::Promise<std::string>>(count);
