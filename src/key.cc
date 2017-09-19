@@ -22,7 +22,7 @@
 
 namespace cantera {
 
-CASKey CASKey::FromString(const string_view& str) {
+CASKey CASKey::FromString(const std::string_view& str) {
   KJ_REQUIRE(!str.empty());
 
   CASKey result;
@@ -62,11 +62,10 @@ CASKey CASKey::FromString(const string_view& str) {
       return result;
 
     case 'P':
-      KJ_FAIL_REQUIRE("Can't use CASKey::FromString with in-key objects",
-                      str.to_string());
+      KJ_FAIL_REQUIRE("Can't use CASKey::FromString with in-key objects", std::string{str});
 
     default:
-      KJ_FAIL_REQUIRE("Unknown key format", str.to_string());
+      KJ_FAIL_REQUIRE("Unknown key format", std::string{str});
   }
 }
 
@@ -122,7 +121,7 @@ uint64_t CASKey::Suffix() const {
 std::string CASKey::ToString() const {
   std::string result("G");
   cas_internal::ToBase64(
-      string_view{reinterpret_cast<const char*>(data()), size()}, result,
+      std::string_view{reinterpret_cast<const char*>(data()), size()}, result,
       cas_internal::kBase64WebSafeChars, false);
   return result;
 }

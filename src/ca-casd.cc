@@ -51,7 +51,6 @@ const char* service = "6001";
 
 enum Option {
   kOptionAddress = 'a',
-  kOptionListenFD = 'f',
   kOptionNoDetach = 'n',
   kOptionPort = 'p',
 };

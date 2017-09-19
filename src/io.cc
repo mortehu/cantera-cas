@@ -25,7 +25,7 @@
 #include <memory>
 #include <random>
 
-#include "src/util.h"
+#include "util.h"
 
 namespace cantera {
 namespace cas_internal {

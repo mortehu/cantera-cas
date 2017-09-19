@@ -107,7 +107,7 @@ ByteStream::Client CASClient::PutStream(const CASKey& key, bool sync) {
   return std::move(stream);
 }
 
-kj::Promise<void> CASClient::GetStream(const string_view& key,
+kj::Promise<void> CASClient::GetStream(const std::string_view& key,
                                        ByteStream::Client stream) {
   KJ_REQUIRE(!key.empty());
 
@@ -160,7 +160,7 @@ kj::Promise<std::string> CASClient::PutAsync(const void* data, size_t size,
                                              bool sync) {
   if (size < pimpl_->max_object_in_key_size) {
     std::string key("P");
-    ToBase64(string_view{reinterpret_cast<const char*>(data), size}, key,
+    ToBase64(std::string_view{reinterpret_cast<const char*>(data), size}, key,
              kBase64WebSafeChars, false);
     return std::move(key);
   }
@@ -173,11 +173,11 @@ kj::Promise<std::string> CASClient::PutAsync(const void* data, size_t size,
   });
 }
 
-kj::Array<const char> CASClient::Get(const string_view& key) {
+kj::Array<const char> CASClient::Get(const std::string_view& key) {
   return GetAsync(key).wait(pimpl_->aio_context.waitScope);
 }
 
-kj::Promise<kj::Array<const char>> CASClient::GetAsync(const string_view& key) {
+kj::Promise<kj::Array<const char>> CASClient::GetAsync(const std::string_view& key) {
   auto result = std::make_shared<kj::Array<char>>();
   auto stream = kj::heap<ByteStreamCollector>(result);
 

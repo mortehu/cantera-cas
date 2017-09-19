@@ -7,10 +7,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <string_view>
 
 #include <sys/time.h>
 
 #include <kj/debug.h>
+#include <kj/string.h>
 
 namespace cantera {
 namespace cas_internal {
@@ -88,7 +90,7 @@ unsigned char* Base64ToBinary(const T& input, unsigned char* output) {
   for (auto i = input.begin(); i != input.end() && *i != '='; ++i) {
     if (std::isspace(*i)) continue;
 
-    const auto index = *i - 43;
+    const uint8_t index = *i - 43;
 
     KJ_REQUIRE(index < sizeof(kBase64DecodeMap) / sizeof(kBase64DecodeMap[0]));
     KJ_REQUIRE(kBase64DecodeMap[index] != 0xff);

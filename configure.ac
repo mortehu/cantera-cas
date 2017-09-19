@@ -1,9 +1,7 @@
-AC_INIT([ca-cas], [1.1.4])
+AC_INIT([ca-cas], [1.2.0])
 AM_INIT_AUTOMAKE([-Wall foreign subdir-objects])
 
 AC_CONFIG_MACRO_DIR([m4])
-
-AM_MAINTAINER_MODE([disable])
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
@@ -27,10 +25,6 @@ AC_SEARCH_LIBS([pthread_create], [pthread], [], [AC_MSG_ERROR(Cannot find pthrea
 AC_CHECK_FUNCS(pipe2)
 
 LT_INIT
-
-AC_LANG_PUSH([C++])
-AX_CXX_COMPILE_STDCXX_14([], [])
-AC_LANG_POP([C++])
 
 if test "x$SWIG" = xnoswig && test "x$enable_python" = xyes; then
   #don't even bother when swig is not found

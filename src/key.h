@@ -2,18 +2,16 @@
 #define CANTERA_CAS_KEY_H_ 1
 
 #include <array>
-#include <experimental/string_view>
+#include <string_view>
 
 #include <capnp/common.h>
 #include <kj/array.h>
 
 namespace cantera {
 
-using string_view = std::experimental::string_view;
-
 struct CASKey : public std::array<uint8_t, 20> {
   // Converts a key string into its binary representation.
-  static CASKey FromString(const string_view& str);
+  static CASKey FromString(const std::string_view& str);
 
   CASKey() noexcept;
 

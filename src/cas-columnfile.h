@@ -11,15 +11,15 @@ namespace cantera {
 
 class CASClient;
 
-class CASColumnFileOutput : public cantera::ColumnFileOutput {
+class CASColumnFileOutput : public ColumnFileOutput {
  public:
   CASColumnFileOutput(CASClient* cas_client);
 
   void Flush(
-      const std::vector<std::pair<uint32_t, cantera::string_view>>& fields,
-      const cantera::ColumnFileCompression compression) override;
+      const std::vector<std::pair<uint32_t, std::string_view>>& fields,
+      const ColumnFileCompression compression) override;
 
-  kj::AutoCloseFd Finalize() override;
+  std::unique_ptr<std::streambuf> Finalize() override;
 
   // Returns the CAS key of the column file.  This function can only be called
   // after `Finalize()`.
@@ -40,13 +40,13 @@ class CASColumnFileOutput : public cantera::ColumnFileOutput {
   std::string key_;
 };
 
-class CASColumnFileInput : public cantera::ColumnFileInput {
+class CASColumnFileInput : public ColumnFileInput {
  public:
   CASColumnFileInput(CASClient* cas_client, std::string key);
 
-  bool Next(cantera::ColumnFileCompression& compression) override;
+  bool Next(ColumnFileCompression& compression) override;
 
-  std::vector<std::pair<uint32_t, kj::Array<const char>>> Fill(
+  std::vector<std::pair<uint32_t, ColumnFileInput::Buffer>> Fill(
       const std::unordered_set<uint32_t>& field_filter) override;
 
   bool End() const override;
@@ -65,11 +65,11 @@ class CASColumnFileInput : public cantera::ColumnFileInput {
 
   struct Segment {
     std::vector<Chunk> chunks;
-    cantera::ColumnFileCompression compression;
+    ColumnFileCompression compression;
   };
 
   std::map<std::pair<uint32_t, uint32_t>,
-           kj::Promise<std::pair<uint32_t, kj::Array<const char>>>>
+           kj::Promise<std::pair<uint32_t, ColumnFileInput::Buffer>>>
       chunk_promises_;
 
   CASClient* cas_client_;

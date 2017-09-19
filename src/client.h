@@ -3,7 +3,8 @@
 
 #include <array>
 #include <cstdint>
-#include <experimental/string_view>
+#include <functional>
+#include <string_view>
 #include <memory>
 #include <vector>
 
@@ -17,8 +18,6 @@
 #include "proto/ca-cas.capnp.h"
 
 namespace cantera {
-
-using string_view = std::experimental::string_view;
 
 // A simplified interface for talking to the CAS servers.
 class CASClient {
@@ -71,14 +70,14 @@ class CASClient {
   // Reads the given object from CAS into the given stream.  Throws an
   // exception on failure.  Failures can happen for any and no reason, so it's
   // important that the caller has retry logic.
-  kj::Promise<void> GetStream(const string_view& key,
+  kj::Promise<void> GetStream(const std::string_view& key,
                               cantera::ByteStream::Client stream);
 
   // Puts data into CAS.  All of these functions are convience wrappers for
   // `PutStream`.
   std::string Put(const void* data, size_t size, bool sync = true);
 
-  std::string Put(const string_view& data, bool sync = true) {
+  std::string Put(const std::string_view& data, bool sync = true) {
     return Put(data.data(), data.size(), sync);
   }
 
@@ -94,14 +93,14 @@ class CASClient {
   kj::Promise<std::string> PutAsync(const void* data, size_t size,
                                     bool sync = true);
 
-  kj::Promise<std::string> PutAsync(const string_view& data, bool sync = true) {
+  kj::Promise<std::string> PutAsync(const std::string_view& data, bool sync = true) {
     return PutAsync(data.data(), data.size(), sync);
   }
 
   // Reads data from CAS.  All of these functions are convenience wrappers for
   // `GetStream`.
-  kj::Array<const char> Get(const string_view& key);
-  kj::Promise<kj::Array<const char>> GetAsync(const string_view& key);
+  kj::Array<const char> Get(const std::string_view& key);
+  kj::Promise<kj::Array<const char>> GetAsync(const std::string_view& key);
 
   // Retrieves a list of all keys stored on the server.
   kj::Promise<void> ListAsync(std::function<void(const CASKey&)> callback,

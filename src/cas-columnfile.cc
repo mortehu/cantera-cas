@@ -35,7 +35,7 @@ CASColumnFileOutput::CASColumnFileOutput(CASClient* cas_client)
     : cas_client_(cas_client) {}
 
 void CASColumnFileOutput::Flush(
-    const std::vector<std::pair<uint32_t, cantera::string_view>>& chunks,
+    const std::vector<std::pair<uint32_t, std::string_view>>& chunks,
     const cantera::ColumnFileCompression compression) {
   KJ_REQUIRE(key_.empty());
 
@@ -64,7 +64,7 @@ void CASColumnFileOutput::Flush(
   new_segment.compression = static_cast<uint32_t>(compression);
 }
 
-kj::AutoCloseFd CASColumnFileOutput::Finalize() {
+std::unique_ptr<std::streambuf> CASColumnFileOutput::Finalize() {
   KJ_REQUIRE(key_.empty());
 
   capnp::MallocMessageBuilder message;
@@ -150,7 +150,7 @@ bool CASColumnFileInput::Next(cantera::ColumnFileCompression& compression) {
   return true;
 }
 
-std::vector<std::pair<uint32_t, kj::Array<const char>>>
+std::vector<std::pair<uint32_t, cantera::ColumnFileInput::Buffer>>
 CASColumnFileInput::Fill(const std::unordered_set<uint32_t>& field_filter) {
   KJ_REQUIRE(segment_index_ >= 0 &&
                  static_cast<size_t>(segment_index_) < segments_.size(),
@@ -181,7 +181,7 @@ CASColumnFileInput::Fill(const std::unordered_set<uint32_t>& field_filter) {
   }
 
   auto row_promises = kj::heapArrayBuilder<
-      kj::Promise<std::pair<uint32_t, kj::Array<const char>>>>(
+      kj::Promise<std::pair<uint32_t, cantera::ColumnFileInput::Buffer>>>(
       matching_columns);
 
   for (size_t offset = 0; offset < kPrefetchLength; ++offset) {
@@ -205,7 +205,9 @@ CASColumnFileInput::Fill(const std::unordered_set<uint32_t>& field_filter) {
 
       auto data_promise = cas_client_->GetAsync(chunk.second)
                               .then([column = chunk.first](auto data) {
-                                return std::make_pair(column, std::move(data));
+                                  Buffer result{data.size()};
+                                  std::memcpy(result.data(), data.begin(), result.size());
+                                return std::make_pair(column, std::move(result));
                               })
                               .eagerlyEvaluate(nullptr);
 
@@ -220,7 +222,7 @@ CASColumnFileInput::Fill(const std::unordered_set<uint32_t>& field_filter) {
   auto chunks =
       kj::joinPromises(row_promises.finish()).wait(cas_client_->WaitScope());
 
-  std::vector<std::pair<uint32_t, kj::Array<const char>>> result;
+  std::vector<std::pair<uint32_t, Buffer>> result;
 
   for (auto& chunk : chunks) result.emplace_back(std::move(chunk));
 

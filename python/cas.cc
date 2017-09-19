@@ -1,6 +1,7 @@
 #include "python/cas.h"
 
 #include <mutex>
+#include <string_view>
 
 #include <kj/async-io.h>
 
@@ -15,9 +16,9 @@ struct CASClientState {
   cantera::CASClient cas_client;
 };
 
-// Converts a Python 'bytes' object to cantera::string_view.  Throws an
+// Converts a Python 'bytes' object to std::string_view.  Throws an
 // exception if the input is not a 'bytes' object.
-cantera::string_view AsStringView(PyObject* value) {
+std::string_view AsStringView(PyObject* value) {
   KJ_REQUIRE(PyBytes_Check(value));
   return {PyBytes_AS_STRING(value),
           static_cast<size_t>(PyBytes_GET_SIZE(value))};

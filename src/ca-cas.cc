@@ -24,7 +24,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
+#include <fstream>
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <random>
 #include <unordered_map>
@@ -227,7 +229,7 @@ class ExportQueue {
       : client_(client),
         objects_(std::move(objects)),
         progress_(objects_.size(), "objects"),
-        output_(kj::AutoCloseFd(STDOUT_FILENO)) {
+        output_(std::unique_ptr<std::streambuf>(std::cout.rdbuf(nullptr))) {
     output_.SetCompression(compression);
   }
 
@@ -263,9 +265,9 @@ class ExportQueue {
       std::vector<std::pair<uint32_t, cantera::optional_string_view>> row;
       row.reserve(2);
       row.emplace_back(
-          0, cantera::string_view{reinterpret_cast<const char*>(key.data()),
+          0, std::string_view{reinterpret_cast<const char*>(key.data()),
                                   key.size()});
-      row.emplace_back(1, cantera::string_view{data.begin(), data.size()});
+      row.emplace_back(1, std::string_view{data.begin(), data.size()});
 
       output_.PutRow(row);
 
@@ -542,7 +544,7 @@ bool Export(CASClient* client, char** argv, int argc) {
       input = OpenFile(argv[0], O_RDONLY);
     }
 
-    ReadLines<string_view>(input, [&objects](auto&& key) {
+    ReadLines<std::string_view>(input, [&objects](auto&& key) {
       objects.emplace(CASKey::FromString(key));
     });
   } else {
@@ -558,7 +560,9 @@ bool Export(CASClient* client, char** argv, int argc) {
   }
 
   for (const auto& exclude_path : exclude_paths) {
-    cantera::ColumnFileReader reader(OpenFile(exclude_path.c_str(), O_RDONLY));
+    auto input = std::make_unique<std::filebuf>();
+    KJ_REQUIRE(nullptr != input->open(exclude_path, std::ios_base::binary | std::ios_base::in), exclude_path);
+    cantera::ColumnFileReader reader(std::move(input));
     reader.SetColumnFilter({0});
 
     while (!reader.End()) {

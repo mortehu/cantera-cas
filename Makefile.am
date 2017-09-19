@@ -1,5 +1,6 @@
 lib_LTLIBRARIES = \
-  libca-cas.la
+  libca-cas.la \
+  libca-cas-columnfile.la
 
 bin_PROGRAMS = \
   ca-cas \
@@ -11,7 +12,6 @@ noinst_LIBRARIES =
 
 noinst_LTLIBRARIES = \
   src/libbalancer.la \
-  src/libcolumnfile.la \
   src/libutil.la \
   src/libsharding.la \
   src/libstorage.la \
@@ -43,6 +43,7 @@ TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = $(CAPNP_CFLAGS) -I$(srcdir)/src -Igenerated/src
+AM_CXXFLAGS = -std=c++17 -Wall
 
 include third_party/gtest/Makefile.am
 
@@ -71,7 +72,6 @@ libca_cas_la_SOURCES = \
   src/client.cc \
   src/client.h
 libca_cas_la_LIBADD = \
-  src/libcolumnfile.la \
   src/libutil.la \
   src/libproto.la \
   $(CAPNP_RPC_LIBS) \
@@ -109,20 +109,20 @@ src_libutil_la_SOURCES = \
   src/progress.cc \
   src/progress.h \
   src/rpc.h \
-  src/sha1.h \
+  src/sha.h \
   src/util.cc \
   src/util.h
 src_libutil_la_LIBADD = \
   $(CRYPTO_LIBS)
 
-src_libcolumnfile_la_SOURCES = \
+libca_cas_columnfile_la_SOURCES = \
+  generated/src/proto/columnfile.capnp.c++ \
+  generated/src/proto/columnfile.capnp.h \
   src/cas-columnfile.cc
 
 nodist_src_libproto_la_SOURCES = \
   generated/src/proto/async-io.capnp.c++ \
   generated/src/proto/async-io.capnp.h \
-  generated/src/proto/columnfile.capnp.c++ \
-  generated/src/proto/columnfile.capnp.h \
   generated/src/proto/ca-cas.capnp.c++ \
   generated/src/proto/ca-cas.capnp.h \
   generated/src/proto/util.capnp.c++ \
@@ -132,7 +132,7 @@ ca_cas_fsck_SOURCES = \
   src/ca-cas-fsck.cc
 ca_cas_fsck_LDADD = \
   src/libutil.la \
-  $(CAPNP_LIBS) \
+  $(CAPNP_RPC_LIBS) \
   $(CRYPTO_LIBS)
 
 ca_cas_SOURCES = \
