@@ -63,7 +63,7 @@ PyObject* get(PyObject* key_arg) {
       return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(&data[0]),
                                        data.size());
     }
-  } catch (kj::Exception e) {
+  } catch (kj::Exception& e) {
     return PyErr_Format(PyExc_RuntimeError, "CAS get error: %s:%d: %s",
                         e.getFile(), e.getLine(), e.getDescription().cStr());
   }
@@ -107,7 +107,7 @@ PyObject* put(PyObject* data) {
 
       return PyBytes_FromStringAndSize(key.data(), key.size());
     }
-  } catch (kj::Exception e) {
+  } catch (kj::Exception& e) {
     return PyErr_Format(PyExc_RuntimeError, "CAS put error: %s:%d: %s",
                         e.getFile(), e.getLine(), e.getDescription().cStr());
   }

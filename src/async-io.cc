@@ -50,7 +50,7 @@ void SignalHandler(union sigval val) {
     auto arg = reinterpret_cast<SignalArgument*>(val.sival_ptr);
     arg->aio_server->PostEvent(arg->event_id);
     delete arg;
-  } catch (kj::Exception e) {
+  } catch (kj::Exception& e) {
     syslog(LOG_ERR, "Failed to write to event fd: %s:%d: %s", e.getFile(),
            e.getLine(), e.getDescription().cStr());
   }

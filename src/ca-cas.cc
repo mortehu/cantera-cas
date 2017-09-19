@@ -300,7 +300,7 @@ bool Get(CASClient* client, char** argv, int argc) {
       kj::FdOutputStream output(STDOUT_FILENO);
       const auto data = client->Get(argv[i]);
       output.write(data.begin(), data.size());
-    } catch (kj::Exception e) {
+    } catch (kj::Exception& e) {
       auto desc = e.getDescription();
       fprintf(stderr, "Error retrieving %s: %s\n", argv[i], desc.cStr());
       has_error = true;
@@ -744,7 +744,7 @@ int main(int argc, char** argv) try {
   const auto status = command(client.get(), argv + optind, argc - optind);
 
   return status ? EXIT_SUCCESS : EXIT_FAILURE;
-} catch (kj::Exception e) {
+} catch (kj::Exception& e) {
   KJ_LOG(FATAL, e);
   return EXIT_FAILURE;
 }

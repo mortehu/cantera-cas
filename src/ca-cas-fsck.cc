@@ -250,7 +250,7 @@ int main(int argc, char** argv) try {
     threads.pop_front();
     if (exception) std::rethrow_exception(exception);
   }
-} catch (kj::Exception e) {
+} catch (kj::Exception& e) {
   KJ_LOG(FATAL, e);
   _Exit(EXIT_FAILURE);
 }

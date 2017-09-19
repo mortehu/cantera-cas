@@ -132,10 +132,10 @@ int main(int argc, char** argv) try {
   }
 
   server.AcceptLoop().wait(aio_context.waitScope);
-} catch (kj::Exception e) {
+} catch (kj::Exception& e) {
   KJ_LOG(ERROR, e);
   return EXIT_FAILURE;
-} catch (std::runtime_error e) {
+} catch (std::runtime_error& e) {
   syslog(LOG_ERR, "Runtime error: %s", e.what());
   return EXIT_FAILURE;
 }

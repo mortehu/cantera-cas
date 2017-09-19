@@ -304,7 +304,7 @@ StorageServer::StorageServer(const char* path, unsigned int flags,
     }
 
     capnp::writeMessageToFd(config_file.get(), message);
-  } catch (kj::Exception e) {
+  } catch (kj::Exception& e) {
     // If we get here, the config file probably already exists.  If we failed
     // for a different, we'll fail soon while attempting to read the
     // configuration file.

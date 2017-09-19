@@ -10,7 +10,7 @@ int main(int argc, char** argv) try {
   cantera::CASClient cas(aio_context);
 
   const auto data = cas.Get("da39a3ee5e6b4b0d3255bfef95601890afd80709");
-} catch (kj::Exception e) {
+} catch (kj::Exception& e) {
   KJ_LOG(FATAL, e);
   return EXIT_FAILURE;
 }
