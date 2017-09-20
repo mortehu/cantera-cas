@@ -1,3 +1,9 @@
+ca-cas (1.2.0-1) unstable; urgency=medium
+
+  * Use C++17 and a newer version of libcolumnfile.
+
+ -- Morten Hustveit <morten.hustveit@gmail.com>  Tue, 19 Sep 2017 19:45:38 -0400
+
 ca-cas (1.1.4-1) unstable; urgency=medium
 
   * Use web-safe Base64.

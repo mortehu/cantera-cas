@@ -6,8 +6,8 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <streambuf>
 #include <string>
-#include <string_view>
 
 #include <sys/time.h>
 
@@ -16,6 +16,44 @@
 
 namespace cantera {
 namespace cas_internal {
+
+class StreambufWrapper : public std::streambuf {
+ public:
+  StreambufWrapper(std::streambuf& output) : output_{output} {}
+
+ protected:
+  void imbue(const std::locale& loc) final { output_.pubimbue(loc); }
+
+  std::streambuf* setbuf(char_type* s, std::streamsize n) final {
+    return output_.pubsetbuf(s, n);
+  }
+
+  pos_type seekoff(off_type off, std::ios_base::seekdir way,
+                   std::ios_base::openmode which) final {
+    return output_.pubseekoff(off, way, which);
+  }
+
+  pos_type seekpos(pos_type pos, std::ios_base::openmode which) final {
+    return output_.pubseekpos(pos, which);
+  }
+
+  int sync() final { return output_.pubsync(); }
+
+  int_type underflow() final { return output_.sgetc(); }
+
+  std::streamsize xsgetn(char_type* s, std::streamsize n) final {
+    return output_.sgetn(s, n);
+  }
+
+  std::streamsize xsputn(const char_type* s, std::streamsize n) final {
+    return output_.sputn(s, n);
+  }
+
+  int_type overflow(int_type ch) final { return output_.sputc(ch); }
+
+ private:
+  std::streambuf& output_;
+};
 
 extern const char kBase64Chars[];
 extern const char kBase64WebSafeChars[];

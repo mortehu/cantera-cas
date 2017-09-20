@@ -229,7 +229,7 @@ class ExportQueue {
       : client_(client),
         objects_(std::move(objects)),
         progress_(objects_.size(), "objects"),
-        output_(std::unique_ptr<std::streambuf>(std::cout.rdbuf(nullptr))) {
+        output_(std::make_unique<StreambufWrapper>(*std::cout.rdbuf())) {
     output_.SetCompression(compression);
   }
 

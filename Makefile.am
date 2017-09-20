@@ -76,7 +76,13 @@ libca_cas_la_LIBADD = \
   src/libproto.la \
   $(CAPNP_RPC_LIBS) \
   $(CRYPTO_LIBS)
-libca_cas_la_LDFLAGS = -no-undefined -version-info 0:0:0 -export-symbols-regex '^_ZNK?7cantera.*'
+libca_cas_la_LDFLAGS = -no-undefined -version-info 1:0:0 -export-symbols-regex '^_ZNK?7cantera.*'
+
+libca_cas_columnfile_la_SOURCES = \
+  generated/src/proto/columnfile.capnp.c++ \
+  generated/src/proto/columnfile.capnp.h \
+  src/cas-columnfile.cc
+libca_cas_columnfile_la_LDFLAGS = $(libca_cas_la_LDFLAGS)
 
 src_libbalancer_la_SOURCES = \
   src/balancer.cc \
@@ -114,11 +120,6 @@ src_libutil_la_SOURCES = \
   src/util.h
 src_libutil_la_LIBADD = \
   $(CRYPTO_LIBS)
-
-libca_cas_columnfile_la_SOURCES = \
-  generated/src/proto/columnfile.capnp.c++ \
-  generated/src/proto/columnfile.capnp.h \
-  src/cas-columnfile.cc
 
 nodist_src_libproto_la_SOURCES = \
   generated/src/proto/async-io.capnp.c++ \
