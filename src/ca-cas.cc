@@ -266,7 +266,7 @@ class ExportQueue {
       row.reserve(2);
       row.emplace_back(
           0, std::string_view{reinterpret_cast<const char*>(key.data()),
-                                  key.size()});
+                              key.size()});
       row.emplace_back(1, std::string_view{data.begin(), data.size()});
 
       output_.PutRow(row);
@@ -325,8 +325,7 @@ bool MarkGC(CASClient* client, char** argv, int argc) {
 
   std::vector<CASKey> keys;
 
-  for (int i = 0; i < argc; ++i)
-    keys.emplace_back(CASKey::FromString(argv[i]));
+  for (int i = 0; i < argc; ++i) keys.emplace_back(CASKey::FromString(argv[i]));
 
   client->MarkGC(keys).wait(aio_context->waitScope);
 
@@ -395,8 +394,7 @@ bool Remove(CASClient* client, char** argv, int argc) {
     errx(EX_USAGE, "The 'rm' command takes at least 1 argument, %d given",
          argc);
 
-  for (int i = 0; i < argc; ++i)
-    client->Remove(CASKey::FromString(argv[i]));
+  for (int i = 0; i < argc; ++i) client->Remove(CASKey::FromString(argv[i]));
 
   return true;
 }
@@ -561,7 +559,9 @@ bool Export(CASClient* client, char** argv, int argc) {
 
   for (const auto& exclude_path : exclude_paths) {
     auto input = std::make_unique<std::filebuf>();
-    KJ_REQUIRE(nullptr != input->open(exclude_path, std::ios_base::binary | std::ios_base::in), exclude_path);
+    KJ_REQUIRE(nullptr != input->open(exclude_path, std::ios_base::binary |
+                                                        std::ios_base::in),
+               exclude_path);
     cantera::ColumnFileReader reader(std::move(input));
     reader.SetColumnFilter({0});
 
@@ -586,6 +586,51 @@ bool Export(CASClient* client, char** argv, int argc) {
 
   ExportQueue exports(client, std::move(queue));
   exports.RunQueue(100);
+
+  return true;
+}
+
+bool Import(CASClient* client, char** argv, int argc) {
+  std::vector<cantera::ColumnFileReader> inputs;
+
+  if (argc == 0) {
+    inputs.emplace_back(std::make_unique<StreambufWrapper>(*std::cout.rdbuf()));
+  } else {
+    for (int i = 0; i < argc; ++i) {
+      auto input = std::make_unique<std::filebuf>();
+      KJ_REQUIRE(nullptr != input->open(argv[i], std::ios_base::binary |
+                                                     std::ios_base::in),
+                 argv[i]);
+      inputs.emplace_back(std::move(input));
+    }
+  }
+
+  for (auto& reader : inputs) {
+    reader.SetColumnFilter({1});
+
+    auto batch = kj::Vector<kj::Promise<void>>(100);
+
+    for (;;) {
+      const bool at_end = reader.End();
+
+      if (batch.size() == 100 || at_end)
+      {
+        kj::joinPromises(batch.releaseAsArray()).wait(aio_context->waitScope);
+
+        if (at_end) break;
+
+        batch.clear();
+      }
+
+      const auto row = reader.GetRow();
+
+      KJ_REQUIRE(row.size() == 1, row.size());
+      KJ_REQUIRE(row[0].first == 1, row[0].first);
+      KJ_REQUIRE(static_cast<bool>(row[0].second));
+
+      batch.add(client->PutAsync(*row[0].second, false).ignoreResult());
+    }
+  }
 
   return true;
 }
@@ -718,6 +763,8 @@ int main(int argc, char** argv) try {
     command = Compact;
   } else if (command_name == "export") {
     command = Export;
+  } else if (command_name == "import") {
+    command = Import;
   } else if (command_name == "get") {
     command = Get;
   } else if (command_name == "begin-gc") {

@@ -27,7 +27,6 @@
 #include <unistd.h>
 
 #include <kj/debug.h>
-#include <yaml-cpp/yaml.h>
 
 #include "balancer.h"
 #include "rpc.h"
