@@ -1,3 +1,9 @@
+ca-cas (1.2.1-1) unstable; urgency=medium
+
+  * Add import command.
+
+ -- Morten Hustveit <morten.hustveit@gmail.com>  Wed, 27 Sep 2017 20:57:46 -0400
+
 ca-cas (1.2.0-1) unstable; urgency=medium
 
   * Use C++17 and a newer version of libcolumnfile.

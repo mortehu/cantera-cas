@@ -594,7 +594,7 @@ bool Import(CASClient* client, char** argv, int argc) {
   std::vector<cantera::ColumnFileReader> inputs;
 
   if (argc == 0) {
-    inputs.emplace_back(std::make_unique<StreambufWrapper>(*std::cout.rdbuf()));
+    inputs.emplace_back(std::make_unique<StreambufWrapper>(*std::cin.rdbuf()));
   } else {
     for (int i = 0; i < argc; ++i) {
       auto input = std::make_unique<std::filebuf>();
