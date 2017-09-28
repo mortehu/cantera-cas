@@ -19,40 +19,51 @@ namespace cas_internal {
 
 class StreambufWrapper : public std::streambuf {
  public:
-  StreambufWrapper(std::streambuf& output) : output_{output} {}
+  StreambufWrapper(std::streambuf& underlying) : underlying_{underlying} {}
 
  protected:
-  void imbue(const std::locale& loc) final { output_.pubimbue(loc); }
+  void imbue(const std::locale& loc) final { underlying_.pubimbue(loc); }
 
   std::streambuf* setbuf(char_type* s, std::streamsize n) final {
-    return output_.pubsetbuf(s, n);
+    return underlying_.pubsetbuf(s, n);
   }
 
   pos_type seekoff(off_type off, std::ios_base::seekdir way,
                    std::ios_base::openmode which) final {
-    return output_.pubseekoff(off, way, which);
+    auto ret = underlying_.pubseekoff(off, way, which);
+
+    // If the seek failed, fall back to reading one character at a time and
+    // discarding it.
+    if (ret == pos_type(off_type(-1)) && off > 0 && way == std::ios_base::cur &&
+        std::ios_base::in == (which & std::ios_base::in)) {
+      for (off_type i = 0; i < off; ++i)
+        if (traits_type::eof() == underlying_.sbumpc()) return off + i;
+      return off;
+    }
+
+    return ret;
   }
 
   pos_type seekpos(pos_type pos, std::ios_base::openmode which) final {
-    return output_.pubseekpos(pos, which);
+    return underlying_.pubseekpos(pos, which);
   }
 
-  int sync() final { return output_.pubsync(); }
+  int sync() final { return underlying_.pubsync(); }
 
-  int_type underflow() final { return output_.sgetc(); }
+  int_type underflow() final { return underlying_.sgetc(); }
 
   std::streamsize xsgetn(char_type* s, std::streamsize n) final {
-    return output_.sgetn(s, n);
+    return underlying_.sgetn(s, n);
   }
 
   std::streamsize xsputn(const char_type* s, std::streamsize n) final {
-    return output_.sputn(s, n);
+    return underlying_.sputn(s, n);
   }
 
-  int_type overflow(int_type ch) final { return output_.sputc(ch); }
+  int_type overflow(int_type ch) final { return underlying_.sputc(ch); }
 
  private:
-  std::streambuf& output_;
+  std::streambuf& underlying_;
 };
 
 extern const char kBase64Chars[];
