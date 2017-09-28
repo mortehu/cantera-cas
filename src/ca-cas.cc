@@ -63,9 +63,12 @@ using namespace cantera::cas_internal;
 
 namespace {
 
+static const auto kFlushIntervalBytes = UINT64_C(64) << 20;  // 64 megabytes.
+
 int print_help;
 int print_version;
 int no_remove;
+int keys_only;
 CAS::ListMode list_mode = CAS::ListMode::DEFAULT;
 uint64_t min_size;
 uint64_t max_size = std::numeric_limits<uint64_t>::max();
@@ -88,6 +91,7 @@ struct option kLongOptions[] = {
     {"compression", required_argument, nullptr, kOptionCompression},
     {"exclude", required_argument, nullptr, kOptionExclude},
     {"list-mode", required_argument, nullptr, kOptionListMode},
+    {"keys-only", no_argument, &keys_only, 1},
     {"max-size", required_argument, nullptr, kOptionMaxSize},
     {"min-size", required_argument, nullptr, kOptionMinSize},
     {"no-remove", no_argument, &no_remove, 1},
@@ -259,9 +263,6 @@ class ExportQueue {
     auto get_request = client_->GetAsync(string_key);
 
     return get_request.then([this, key](auto data) {
-      static const auto kFlushIntervalBytes = UINT64_C(64)
-                                              << 20;  // 64 megabytes.
-
       std::vector<std::pair<uint32_t, cantera::optional_string_view>> row;
       row.reserve(2);
       row.emplace_back(
@@ -558,10 +559,18 @@ bool Export(CASClient* client, char** argv, int argc) {
   }
 
   for (const auto& exclude_path : exclude_paths) {
-    auto input = std::make_unique<std::filebuf>();
-    KJ_REQUIRE(nullptr != input->open(exclude_path, std::ios_base::binary |
+    std::unique_ptr<std::streambuf> input;
+    if (exclude_path == "-") {
+      input = std::make_unique<StreambufWrapper>(*std::cin.rdbuf());
+    } else {
+      auto file_input = std::make_unique<std::filebuf>();
+      KJ_REQUIRE(
+          nullptr != file_input->open(exclude_path, std::ios_base::binary |
                                                         std::ios_base::in),
-               exclude_path);
+          exclude_path);
+      input = std::move(file_input);
+    }
+
     cantera::ColumnFileReader reader(std::move(input));
     reader.SetColumnFilter({0});
 
@@ -579,13 +588,24 @@ bool Export(CASClient* client, char** argv, int argc) {
     }
   }
 
-  std::vector<CASKey> queue(objects.begin(), objects.end());
+  if (keys_only) {
+    cantera::ColumnFileWriter output{
+        std::make_unique<StreambufWrapper>(*std::cout.rdbuf())};
 
-  // Free memory used by `objects`.
-  objects = std::unordered_set<CASKey>();
+    for (const auto& key : objects) {
+      output.Put(0, std::string_view{reinterpret_cast<const char*>(key.data()),
+                                     key.size()});
+      if (output.PendingSize() >= kFlushIntervalBytes) output.Flush();
+    }
+  } else {
+    std::vector<CASKey> queue(objects.begin(), objects.end());
 
-  ExportQueue exports(client, std::move(queue));
-  exports.RunQueue(100);
+    // Free memory used by `objects`.
+    objects = std::unordered_set<CASKey>();
+
+    ExportQueue exports(client, std::move(queue));
+    exports.RunQueue(100);
+  }
 
   return true;
 }
@@ -613,8 +633,7 @@ bool Import(CASClient* client, char** argv, int argc) {
     for (;;) {
       const bool at_end = reader.End();
 
-      if (batch.size() == 100 || at_end)
-      {
+      if (batch.size() == 100 || at_end) {
         kj::joinPromises(batch.releaseAsArray()).wait(aio_context->waitScope);
 
         if (at_end) break;
@@ -655,12 +674,16 @@ int main(int argc, char** argv) try {
         break;
 
       case kOptionExclude: {
-        glob_t globbuf;
-        memset(&globbuf, 0, sizeof(globbuf));
-        KJ_REQUIRE(0 <= glob(optarg, GLOB_ERR, nullptr, &globbuf));
-        for (size_t i = 0; i < globbuf.gl_pathc; ++i)
-          exclude_paths.emplace_back(globbuf.gl_pathv[i]);
-        globfree(&globbuf);
+        if (nullptr != std::strchr(optarg, '*')) {
+          glob_t globbuf;
+          memset(&globbuf, 0, sizeof(globbuf));
+          KJ_REQUIRE(0 <= glob(optarg, GLOB_ERR, nullptr, &globbuf));
+          for (size_t i = 0; i < globbuf.gl_pathc; ++i)
+            exclude_paths.emplace_back(globbuf.gl_pathv[i]);
+          globfree(&globbuf);
+        } else {
+          exclude_paths.emplace_back(optarg);
+        }
       } break;
 
       case kOptionListMode:
@@ -702,6 +725,9 @@ int main(int argc, char** argv) try {
         "                               garbage: only garbage objects\n"
         "      --min-size=SIZE        skip objects smaller than SIZE\n"
         "      --max-size=SIZE        skip objects not smaller than SIZE\n"
+        "\n"
+        "Export options:\n"
+        "      --keys-only            dump keys only (no data)\n"
         "\n"
         "Garbage collection commands:\n"
         "  begin-gc                   starts a garbage colleciton cycle\n"
