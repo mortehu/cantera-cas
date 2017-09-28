@@ -794,4 +794,7 @@ int main(int argc, char** argv) try {
 } catch (kj::Exception& e) {
   KJ_LOG(FATAL, e);
   return EXIT_FAILURE;
+} catch (ColumnFileException& e) {
+  std::cerr << "Column file error: " << e.what() << '\n';
+  return EXIT_FAILURE;
 }
